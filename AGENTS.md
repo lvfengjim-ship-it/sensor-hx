@@ -58,6 +58,19 @@ git push origin main
 
 **严禁提交**：`node_modules/`、`dist/`、`.env`（含数据库与第三方凭证）。
 
+### GitHub Pages 静态预览
+
+调试链接：<https://lvfengjim-ship-it.github.io/sensor-hx/>（`gh-pages` 分支，仅静态前端，注册/登录/下单等后端功能不可用）。
+
+代码改动后如需刷新预览：
+
+```bash
+VITE_BASE=/sensor-hx/ npm run build          # 子路径 base 构建
+# dist/public 内容 + index.html 复制为 404.html（SPA 回退），推送到 gh-pages 分支
+```
+
+注意：前端所有图片路径必须通过 `src/lib/asset.ts` 的 `asset()` 函数引用，路由 basename 已适配子路径，勿改回硬编码 `/images/...`。
+
 提交信息规范：一句话说明改动内容，如「产品中心新增 HXP-4200 型号」「方案集市接入支付回调」。
 
 ## 路线图（待办）
