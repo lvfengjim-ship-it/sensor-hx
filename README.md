@@ -39,6 +39,8 @@ npm run build
 npm start         # 生产模式 http://localhost:3000
 ```
 
+正式部署（Mac Studio + Docker）见 **[DEPLOY.md](DEPLOY.md)**；GitHub Pages 静态预览见 [AGENTS.md](AGENTS.md)。
+
 ## 目录结构
 
 ```

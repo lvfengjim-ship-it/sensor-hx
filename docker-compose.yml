@@ -1,0 +1,45 @@
+# Mac Studio 一键部署：应用 + MySQL
+# 用法：
+#   1. docker compose up -d --build
+#   2. 首次启动后执行一次建表：docker compose exec app npm run db:push
+#   3. 访问 http://localhost:3000
+
+services:
+  db:
+    image: mysql:8.4
+    container_name: sensor-hx-db
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: hx_root_2026
+      MYSQL_DATABASE: sensor_hx
+      MYSQL_USER: sensor
+      MYSQL_PASSWORD: sensor_hx_pass_2026
+    volumes:
+      - db_data:/var/lib/mysql
+    ports:
+      - "3306:3306"
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-usensor", "-psensor_hx_pass_2026"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+
+  app:
+    build: .
+    container_name: sensor-hx-app
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      APP_ID: sensor-hx
+      # 生产环境请改成随机长字符串
+      APP_SECRET: hx-secret-please-change-me
+      DATABASE_URL: mysql://sensor:sensor_hx_pass_2026@db:3306/sensor_hx
+      PORT: "3000"
+    ports:
+      - "3000:3000"
+
+volumes:
+  db_data:
