@@ -7,6 +7,8 @@ import { inspectAttr } from 'kimi-plugin-inspect-react'
 
 // https://vite.dev/config/
 export default defineConfig({
+  // GitHub Pages 部署在子路径 /sensor-hx/ 下，本地/Docker 部署为 /
+  base: process.env.VITE_BASE || "/",
   plugins: [
     devServer({ entry: "api/boot.ts", exclude: [/^\/(?!api\/).*$/] }),
     inspectAttr(), react()],

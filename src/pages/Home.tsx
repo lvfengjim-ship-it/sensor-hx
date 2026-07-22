@@ -11,11 +11,12 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { asset } from "@/lib/asset";
 
 const pillars = [
   {
     icon: Cpu,
-    image: "/images/product-pressure.png",
+    image: asset("images/product-pressure.png"),
     title: "产品中心",
     subtitle: "传感器与 MCU 产品资料",
     desc: "压力、温湿度、电流等工业级传感器与 32 位 MCU 产品线，完整数据手册、选型指南与样品申请一站获取。",
@@ -24,7 +25,7 @@ const pillars = [
   },
   {
     icon: Bot,
-    image: "/images/ai-assistant.png",
+    image: asset("images/ai-assistant.png"),
     title: "AI 编程助手",
     subtitle: "MCU 设计工程师的智能伙伴",
     desc: "描述你的需求，AI 辅助完成固件代码、引脚配置与 PCB 版图设计，输出可直接打板试样的工程文件。",
@@ -34,7 +35,7 @@ const pillars = [
   },
   {
     icon: Store,
-    image: "/images/marketplace.png",
+    image: asset("images/marketplace.png"),
     title: "方案集市",
     subtitle: "MCU 经典编程集锦交易平台",
     desc: "经量产验证的经典 MCU 方案明码标价、即买即用；你也可以发布自己的成熟方案，让代码产生持续收益。",
@@ -77,7 +78,7 @@ export default function Home() {
       <section className="relative overflow-hidden">
         <div className="absolute inset-0">
           <img
-            src="/images/hero.png"
+            src={asset("images/hero.png")}
             alt=""
             className="h-full w-full object-cover"
           />

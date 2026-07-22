@@ -3,6 +3,7 @@ import { useState } from "react";
 import { Menu, X, User, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/lib/auth";
+import { asset } from "@/lib/asset";
 
 const navItems = [
   { to: "/", label: "首页" },
@@ -24,7 +25,7 @@ export default function Layout() {
           <div className="flex h-16 items-center justify-between">
             <Link to="/" className="flex items-center gap-2.5">
               <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-white p-1">
-                <img src="/images/logo.png" alt="恒矽传感" className="h-full w-full object-contain" />
+                <img src={asset("images/logo.png")} alt="恒矽传感" className="h-full w-full object-contain" />
               </span>
               <div className="leading-tight">
                 <div className="font-bold text-base tracking-wide">
@@ -193,7 +194,7 @@ export default function Layout() {
           <div className="grid gap-8 md:grid-cols-4">
             <div>
               <div className="flex items-center gap-2 mb-4">
-                <img src="/images/logo.png" alt="" className="h-8 w-8" />
+                <img src={asset("images/logo.png")} alt="" className="h-8 w-8" />
                 <span className="font-bold">恒矽传感</span>
               </div>
               <p className="text-sm text-slate-400 leading-relaxed">

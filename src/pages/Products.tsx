@@ -17,6 +17,7 @@ import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { trpc } from "@/providers/trpc";
 import { useAuth } from "@/lib/auth";
+import { asset } from "@/lib/asset";
 
 type Product = {
   model: string;
@@ -33,7 +34,7 @@ const products: Product[] = [
   {
     model: "HXP-2100",
     name: "工业压力变送器芯体",
-    image: "/images/product-pressure.png",
+    image: asset("images/product-pressure.png"),
     category: "pressure",
     desc: "扩散硅压阻式压力敏感芯体，专为工业过程控制与液压系统设计，长期稳定性优异。",
     specs: [
@@ -48,7 +49,7 @@ const products: Product[] = [
   {
     model: "HXP-3500",
     name: "汽车级绝压传感器模块",
-    image: "/images/product-pressure.png",
+    image: asset("images/product-pressure.png"),
     category: "pressure",
     desc: "面向汽车进气歧管、胎压与气压制动的绝压测量模块，EMC 性能通过 CISPR 25 Class 5。",
     specs: [
@@ -63,7 +64,7 @@ const products: Product[] = [
   {
     model: "HXT-880",
     name: "数字温湿度传感器",
-    image: "/images/product-temp.png",
+    image: asset("images/product-temp.png"),
     category: "temperature",
     desc: "CMOSens® 工艺单芯片温湿度一体传感器，出厂全量程标定，I²C 接口即插即用。",
     specs: [
@@ -78,7 +79,7 @@ const products: Product[] = [
   {
     model: "HXT-92A",
     name: "高温型温度探头",
-    image: "/images/product-temp.png",
+    image: asset("images/product-temp.png"),
     category: "temperature",
     desc: "PT1000 敏感元件 + 不锈钢封装探头，适用于储能电池包与工业烘箱的温度监控。",
     specs: [
@@ -93,7 +94,7 @@ const products: Product[] = [
   {
     model: "HXC-500",
     name: "霍尔电流传感器",
-    image: "/images/product-current.png",
+    image: asset("images/product-current.png"),
     category: "current",
     desc: "开环霍尔原理，原边铜排穿孔设计，适用于变频器、光伏逆变器与充电桩电流检测。",
     specs: [
@@ -108,7 +109,7 @@ const products: Product[] = [
   {
     model: "HXC-60S",
     name: "闭环磁通门电流传感器",
-    image: "/images/product-current.png",
+    image: asset("images/product-current.png"),
     category: "current",
     desc: "磁通门技术实现 ppm 级零点稳定性，面向电池化成、精密电源等高精度场合。",
     specs: [
@@ -123,7 +124,7 @@ const products: Product[] = [
   {
     model: "HXM-32F4",
     name: "32 位工业控制 MCU",
-    image: "/images/product-mcu.png",
+    image: asset("images/product-mcu.png"),
     category: "mcu",
     desc: "ARM Cortex-M4 内核 168MHz，集成 3 路 CAN-FD 与 12 位 ADC，针对传感网关与电机控制优化。",
     specs: [
@@ -138,7 +139,7 @@ const products: Product[] = [
   {
     model: "HXM-32U0",
     name: "超低功耗传感节点 MCU",
-    image: "/images/product-mcu.png",
+    image: asset("images/product-mcu.png"),
     category: "mcu",
     desc: "Cortex-M0+ 内核，待机电流 0.8μA，集成 16 位 ADC 与触摸按键，电池供电传感节点首选。",
     specs: [

@@ -30,6 +30,7 @@ import {
 import { Checkbox } from "@/components/ui/checkbox";
 import { useAuth } from "@/lib/auth";
 import { cn } from "@/lib/utils";
+import { asset } from "@/lib/asset";
 
 const PIPELINE_STEPS = [
   "需求解析与器件选型",
@@ -262,7 +263,7 @@ export default function Assistant() {
           </div>
           <div className="relative">
             <img
-              src="/images/ai-assistant.png"
+              src={asset("images/ai-assistant.png")}
               alt="AI 编程助手"
               className="rounded-2xl border border-slate-800 w-full"
             />
