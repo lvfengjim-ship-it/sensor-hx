@@ -23,7 +23,9 @@ export default function Layout() {
         <div className="mx-auto max-w-7xl px-4 sm:px-6">
           <div className="flex h-16 items-center justify-between">
             <Link to="/" className="flex items-center gap-2.5">
-              <img src="/images/logo.png" alt="恒矽传感" className="h-9 w-9" />
+              <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-white p-1">
+                <img src="/images/logo.png" alt="恒矽传感" className="h-full w-full object-contain" />
+              </span>
               <div className="leading-tight">
                 <div className="font-bold text-base tracking-wide">
                   恒矽传感
