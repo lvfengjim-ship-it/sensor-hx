@@ -57,10 +57,13 @@ export default function Layout() {
             <div className="hidden md:flex items-center gap-3">
               {member ? (
                 <div className="flex items-center gap-3">
-                  <span className="flex items-center gap-1.5 text-sm text-slate-300">
+                  <Link
+                    to="/account"
+                    className="flex items-center gap-1.5 text-sm text-slate-300 hover:text-cyan-300 transition-colors"
+                  >
                     <User className="h-4 w-4 text-cyan-400" />
                     {member.name}
-                  </span>
+                  </Link>
                   <Button
                     variant="ghost"
                     size="sm"
@@ -123,18 +126,31 @@ export default function Layout() {
               ))}
               <div className="pt-2 flex gap-2 px-4">
                 {member ? (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="border-slate-700 bg-transparent text-slate-200 hover:bg-slate-800"
-                    onClick={() => {
-                      logout();
-                      setOpen(false);
-                      navigate("/");
-                    }}
-                  >
-                    退出登录（{member.name}）
-                  </Button>
+                  <>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="border-slate-700 bg-transparent text-slate-200 hover:bg-slate-800"
+                      onClick={() => {
+                        setOpen(false);
+                        navigate("/account");
+                      }}
+                    >
+                      会员中心（{member.name}）
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="text-slate-400"
+                      onClick={() => {
+                        logout();
+                        setOpen(false);
+                        navigate("/");
+                      }}
+                    >
+                      退出
+                    </Button>
+                  </>
                 ) : (
                   <>
                     <Button

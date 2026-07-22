@@ -227,4 +227,14 @@ export const memberRouter = createRouter({
       .orderBy(desc(orders.createdAt))
       .limit(50);
   }),
+
+  mySolutions: publicQuery.query(async ({ ctx }) => {
+    const member = await requireMember(ctx);
+    return getDb()
+      .select()
+      .from(solutions)
+      .where(eq(solutions.memberId, member.id))
+      .orderBy(desc(solutions.createdAt))
+      .limit(50);
+  }),
 });

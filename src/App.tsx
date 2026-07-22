@@ -7,6 +7,7 @@ import Assistant from "@/pages/Assistant";
 import Marketplace from "@/pages/Marketplace";
 import Register from "@/pages/Register";
 import Login from "@/pages/Login";
+import Account from "@/pages/Account";
 
 export default function App() {
   return (
@@ -19,6 +20,7 @@ export default function App() {
           <Route path="/marketplace" element={<Marketplace />} />
           <Route path="/register" element={<Register />} />
           <Route path="/login" element={<Login />} />
+          <Route path="/account" element={<Account />} />
           <Route path="*" element={<Home />} />
         </Route>
       </Routes>
