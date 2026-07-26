@@ -75,7 +75,7 @@ VITE_BASE=/sensor-hx/ npm run build          # 子路径 base 构建
 
 ## 路线图（待办）
 
-- [ ] AI 助手接入大模型 API（Kimi / DeepSeek），代码与版图真实生成
+- [x] AI 助手接入大模型 API（DeepSeek 默认 + Mac Studio Ollama 双通道，`api/ai.ts`，模板见 `deploy/ollama-tunnel/`）
 - [ ] 方案集市在线支付 + 工程文件自动交付
 - [x] 会员后台：我的订单 / 我的方案 / 账号信息（`/account`）
 - [ ] 会员后台：资料下载记录、注册信息自助修改

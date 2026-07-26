@@ -33,7 +33,7 @@ async function createSession(memberId: number) {
   return token;
 }
 
-async function requireMember(ctx: TrpcContext) {
+export async function requireMember(ctx: TrpcContext) {
   const auth = ctx.req.headers.get("authorization") ?? "";
   const token = auth.startsWith("Bearer ") ? auth.slice(7) : "";
   if (!token) {

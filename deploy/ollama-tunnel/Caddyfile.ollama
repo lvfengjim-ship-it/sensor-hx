@@ -1,0 +1,9 @@
+# Ollama 鉴权代理：监听 11435，校验共享密钥后转发给本机 Ollama
+# 部署在 Mac Studio 上，用法：caddy run --config Caddyfile.ollama
+# 把 hx-ollama-secret-change-me 改成你自己的随机密钥（与服务器 OLLAMA_API_KEY 一致）
+
+:11435 {
+	@unauthorized not header Authorization "Bearer hx-ollama-secret-change-me"
+	respond @unauthorized "Unauthorized" 401
+	reverse_proxy 127.0.0.1:11434
+}

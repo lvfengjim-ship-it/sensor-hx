@@ -30,6 +30,16 @@ import {
 import { Checkbox } from "@/components/ui/checkbox";
 import { useAuth } from "@/lib/auth";
 import { cn } from "@/lib/utils";
+import { trpc } from "@/providers/trpc";
+import { toast } from "sonner";
+
+type GenResult = {
+  code: string;
+  pins: string;
+  pcb: string;
+  bom: string;
+  raw: string;
+};
 import { asset } from "@/lib/asset";
 
 const PIPELINE_STEPS = [
@@ -173,7 +183,12 @@ export default function Assistant() {
   const [running, setRunning] = useState(false);
   const [step, setStep] = useState(-1);
   const [done, setDone] = useState(false);
+  const [result, setResult] = useState<GenResult | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const generate = trpc.ai.generate.useMutation({
+    onError: (e) => toast.error(`生成失败：${e.message}`),
+  });
 
   const togglePeripheral = (p: string) => {
     setPeripherals((prev) =>
@@ -181,22 +196,33 @@ export default function Assistant() {
     );
   };
 
-  const startGeneration = () => {
+  const startGeneration = async () => {
     setRunning(true);
     setDone(false);
+    setResult(null);
     setStep(0);
+    // 生成期间推进流程动画（停在最後一步等待 API 返回）
     let current = 0;
     timerRef.current = setInterval(() => {
       current += 1;
-      if (current >= PIPELINE_STEPS.length) {
+      if (current >= PIPELINE_STEPS.length - 1) {
         if (timerRef.current) clearInterval(timerRef.current);
-        setRunning(false);
-        setDone(true);
-        setStep(PIPELINE_STEPS.length - 1);
       } else {
         setStep(current);
       }
-    }, 1200);
+    }, 2000);
+    try {
+      const r = await generate.mutateAsync({ requirement, mcu, peripherals });
+      setResult(r);
+      setStep(PIPELINE_STEPS.length - 1);
+      setDone(true);
+      toast.success("AI 生成完成，可查看代码与版图建议");
+    } catch {
+      setStep(-1);
+    } finally {
+      if (timerRef.current) clearInterval(timerRef.current);
+      setRunning(false);
+    }
   };
 
   const reset = () => {
@@ -204,6 +230,7 @@ export default function Assistant() {
     setRunning(false);
     setDone(false);
     setStep(-1);
+    setResult(null);
   };
 
   const progress = useMemo(() => {
@@ -291,7 +318,7 @@ export default function Assistant() {
           </p>
         </div>
         <Badge className="bg-emerald-500/15 text-emerald-300 border-emerald-500/30">
-          <Sparkles className="h-3.5 w-3.5 mr-1" /> 演示模式 · 即将接入大模型
+          <Sparkles className="h-3.5 w-3.5 mr-1" /> DeepSeek 驱动 · 真实生成
         </Badge>
       </div>
 
@@ -446,20 +473,34 @@ export default function Assistant() {
                     <TabsTrigger value="pins">
                       <ListOrdered className="h-3.5 w-3.5 mr-1.5" /> 引脚分配
                     </TabsTrigger>
+                    <TabsTrigger value="bom">
+                      <ListOrdered className="h-3.5 w-3.5 mr-1.5" /> 物料清单
+                    </TabsTrigger>
                   </TabsList>
                   <TabsContent value="pcb" className="pt-4">
                     <PcbPreview />
-                    <p className="text-xs text-slate-500 mt-2">
-                      2 层板 · 80×50mm · 已按嘉立创工艺规则检查（DRC 通过），可直接导出
-                      Gerber 送厂打样。
-                    </p>
+                    {result?.pcb ? (
+                      <div className="mt-3 rounded-lg bg-slate-950 border border-slate-800 p-4 text-sm text-slate-300 whitespace-pre-wrap leading-relaxed max-h-72 overflow-y-auto">
+                        {result.pcb}
+                      </div>
+                    ) : (
+                      <p className="text-xs text-slate-500 mt-2">
+                        2 层板 · 80×50mm · 已按嘉立创工艺规则检查（DRC 通过），可直接导出
+                        Gerber 送厂打样。
+                      </p>
+                    )}
                   </TabsContent>
                   <TabsContent value="code" className="pt-4">
                     <pre className="rounded-lg bg-slate-950 border border-slate-800 p-4 text-xs leading-relaxed overflow-x-auto text-slate-300 max-h-96">
-                      {SAMPLE_CODE}
+                      {result?.code ?? SAMPLE_CODE}
                     </pre>
                   </TabsContent>
                   <TabsContent value="pins" className="pt-4">
+                    {result?.pins ? (
+                      <div className="rounded-lg bg-slate-950 border border-slate-800 p-4 text-sm text-slate-300 whitespace-pre-wrap leading-relaxed max-h-96 overflow-y-auto">
+                        {result.pins}
+                      </div>
+                    ) : (
                     <table className="w-full text-sm">
                       <thead>
                         <tr className="text-left text-slate-400 border-b border-slate-800">
@@ -483,6 +524,12 @@ export default function Assistant() {
                         ))}
                       </tbody>
                     </table>
+                    )}
+                  </TabsContent>
+                  <TabsContent value="bom" className="pt-4">
+                    <div className="rounded-lg bg-slate-950 border border-slate-800 p-4 text-sm text-slate-300 whitespace-pre-wrap leading-relaxed max-h-96 overflow-y-auto">
+                      {result?.bom ?? "AI 生成后显示物料清单"}
+                    </div>
                   </TabsContent>
                 </Tabs>
               </CardContent>

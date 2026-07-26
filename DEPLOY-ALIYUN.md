@@ -51,6 +51,17 @@ ssh-copy-id -i ~/.ssh/sensor-hx-deploy.pub root@<服务器IP>
 | `ALIYUN_USER` | `root` |
 | `ALIYUN_SSH_KEY` | `~/.ssh/sensor-hx-deploy`（私钥）的完整内容 |
 
+## 三点五、配置 AI 密钥（AI 编程助手需要）
+
+在服务器上创建 `~/sensor-hx/.env`（docker compose 会自动读取）：
+
+    DEEPSEEK_API_KEY=<你的 DeepSeek Key>
+    AI_PROVIDER=deepseek
+
+然后 `cd ~/sensor-hx && docker compose up -d` 重启生效。
+要改用 Mac Studio 本地算力，按 `deploy/ollama-tunnel/README.md` 配置后把
+`AI_PROVIDER` 改为 `ollama`。
+
 ## 四、域名解析
 
 1. 阿里云**云解析 DNS** → `sensor-hx.com` → 添加 A 记录：
