@@ -39,6 +39,12 @@ npm run build
 npm start         # 生产模式 http://localhost:3000
 ```
 
+部署：
+
+- **阿里云生产环境（推送 GitHub 即自动发布）**见 **[DEPLOY-ALIYUN.md](DEPLOY-ALIYUN.md)**
+- Mac Studio 本地部署见 [DEPLOY.md](DEPLOY.md) 与 [DEPLOY-CHECKLIST.md](DEPLOY-CHECKLIST.md)
+- GitHub Pages 静态预览见 [AGENTS.md](AGENTS.md)
+
 ## 目录结构
 
 ```
