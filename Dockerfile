@@ -5,15 +5,19 @@ ENV NODE_ENV=development
 
 COPY package.json package-lock.json ./
 
-# 安装并输出完整诊断信息（不因失败中断，确保信息可见）
-RUN npm ci --no-audit --no-fund; \
-    echo "== npm: $(npm --version)  node: $(node --version)"; \
-    echo "== omit: $(npm config get omit)  ignore-scripts: $(npm config get ignore-scripts)  bin-links: $(npm config get bin-links)"; \
-    echo "== registry: $(npm config get registry)"; \
-    echo "== node_modules 包数: $(ls node_modules 2>/dev/null | wc -l)"; \
-    echo "== .bin 条目数: $(ls node_modules/.bin 2>/dev/null | wc -l)"; \
-    ls -la node_modules/.bin 2>/dev/null | head -15; \
-    ls -d node_modules/vite 2>/dev/null || echo "!! vite 包未安装"
+# 1. 升级 npm：node:20-alpine 自带 npm 10.8.2 存在
+#    "Exit handler never called" 崩溃 bug（崩溃后退出码仍为 0，导致静默安装失败）
+RUN npm install -g npm@11 --no-audit --no-fund
+
+# 2. 切换国内镜像源，避免拉取 tarball 时网络中断（integrity 校验不受影响）
+RUN npm config set registry https://registry.npmmirror.com \
+ && npm config set fetch-retries 5 \
+ && npm config set fetch-retry-maxtimeout 120000 \
+ && sed -i 's#https://registry.npmjs.org#https://registry.npmmirror.com#g' package-lock.json
+
+# 3. 安装并自检（vite 必须存在且能运行，否则构建立即失败暴露问题）
+RUN npm ci --no-audit --no-fund || npm install --no-audit --no-fund
+RUN ls node_modules/.bin/vite && node_modules/.bin/vite --version
 
 COPY . .
 RUN npm run build
