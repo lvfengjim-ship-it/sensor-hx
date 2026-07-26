@@ -1,0 +1,7 @@
+www.sensor-hx.com {
+	reverse_proxy app:3000
+}
+
+sensor-hx.com {
+	redir https://www.sensor-hx.com{uri} permanent
+}
