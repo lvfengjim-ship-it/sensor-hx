@@ -3,7 +3,8 @@ FROM node:20-alpine
 WORKDIR /app
 
 COPY package.json package-lock.json ./
-RUN npm ci
+# 构建阶段需要 devDependencies（vite / esbuild / typescript），显式声明避免被省略
+RUN npm ci --include=dev
 
 COPY . .
 RUN npm run build
