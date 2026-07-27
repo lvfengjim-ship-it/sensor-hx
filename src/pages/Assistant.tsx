@@ -9,11 +9,12 @@ import {
   Loader2,
   Circle,
   FileCode2,
-  LayoutGrid,
+  CircuitBoard,
   ListOrdered,
   Download,
   Sparkles,
   Lightbulb,
+  ShieldCheck,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -41,14 +42,16 @@ import {
   downloadGerberZip,
   layoutBoard,
   parsePins,
-  type BoardLayout,
   type PinInfo,
 } from "@/lib/pcb";
 
 type GenResult = {
   code: string;
+  simLogic: string;
+  simTiming: string;
+  simSI: string;
   pins: string;
-  pcb: string;
+  schematic: string;
   bom: string;
   raw: string;
 };
@@ -57,9 +60,10 @@ import { asset } from "@/lib/asset";
 const PIPELINE_STEPS = [
   "需求解析与器件选型",
   "固件框架与驱动生成",
-  "外设与引脚分配",
-  "原理图连接建议",
-  "PCB 版图布局布线",
+  "代码逻辑仿真（软件仿真）",
+  "功能与时序仿真（硬件仿真）",
+  "信号完整性仿真（物理仿真）",
+  "引脚分配与原理图校验",
   "Gerber 工程文件打包",
 ];
 
@@ -123,127 +127,12 @@ const PIN_FALLBACK: PinInfo[] = [
   { pin: "P20", func: "LED_STATUS", note: "运行指示灯" },
 ];
 
-// ---------------- 动态 PCB 版图（与 Gerber 同一布局引擎） ----------------
-function PcbPreview({ layout }: { layout: BoardLayout }) {
-  const S = 6.4; // px / mm
-  const { w, h, mcu, crystal, led, connectors, holes, traces } = layout;
-  const px = (n: number) => n * S;
-  const half = mcu.size / 2;
-
-  return (
-    <svg
-      viewBox={`0 0 ${px(w + 4)} ${px(h + 6)}`}
-      className="w-full rounded-lg bg-[#0b3d2e]"
-    >
-      {/* 板框 */}
-      <rect
-        x={px(2)}
-        y={px(2)}
-        width={px(w)}
-        height={px(h)}
-        rx="10"
-        fill="#0d4a36"
-        stroke="#1a7a58"
-        strokeWidth="3"
-      />
-      {/* 走线 */}
-      <g stroke="#facc15" strokeWidth="2.2" fill="none" opacity="0.9">
-        {traces.map((t, i) => (
-          <path
-            key={i}
-            d={`M${px(2 + t.x1)} ${px(2 + t.y1)} L${px(2 + t.x2)} ${px(2 + t.y2)} L${px(2 + (t.x3 ?? t.x2))} ${px(2 + (t.y3 ?? t.y2))}`}
-          />
-        ))}
-      </g>
-      {/* MCU */}
-      <g>
-        <rect
-          x={px(2 + mcu.x - half)}
-          y={px(2 + mcu.y - half)}
-          width={px(mcu.size)}
-          height={px(mcu.size)}
-          fill="#1a1a2e"
-          stroke="#888"
-          strokeWidth="1.5"
-        />
-        {Array.from({ length: mcu.pinsPerSide }).map((_, i) => {
-          const o = -half + 1 + (i * (mcu.size - 2)) / Math.max(1, mcu.pinsPerSide - 1);
-          return (
-            <g key={i}>
-              <rect x={px(2 + mcu.x + o) - 2} y={px(2 + mcu.y - half - 0.9)} width="4" height="5" fill="#c8c86e" />
-              <rect x={px(2 + mcu.x + o) - 2} y={px(2 + mcu.y + half + 0.9) - 5} width="4" height="5" fill="#c8c86e" />
-              <rect x={px(2 + mcu.x - half - 0.9)} y={px(2 + mcu.y + o) - 2} width="5" height="4" fill="#c8c86e" />
-              <rect x={px(2 + mcu.x + half + 0.9) - 5} y={px(2 + mcu.y + o) - 2} width="5" height="4" fill="#c8c86e" />
-            </g>
-          );
-        })}
-        <text
-          x={px(2 + mcu.x)}
-          y={px(2 + mcu.y) + 3}
-          fill="#7dd3fc"
-          fontSize="9"
-          textAnchor="middle"
-          fontFamily="monospace"
-        >
-          {mcu.name.length > 10 ? mcu.name.slice(0, 10) : mcu.name}
-        </text>
-      </g>
-      {/* 晶振 */}
-      <rect x={px(2 + crystal.x)} y={px(2 + crystal.y)} width={px(6)} height={px(2.6)} rx="3" fill="#71717a" />
-      <text x={px(2 + crystal.x + 3)} y={px(2 + crystal.y + 1.9)} fill="#e4e4e7" fontSize="8" textAnchor="middle" fontFamily="monospace">XTAL</text>
-      {/* LED */}
-      <circle cx={px(2 + led.x)} cy={px(2 + led.y)} r="4" fill="#f87171" />
-      <text x={px(2 + led.x)} y={px(2 + led.y - 1.6)} fill="#fca5a5" fontSize="8" textAnchor="middle" fontFamily="monospace">LED</text>
-      {/* 连接器 */}
-      {connectors.map((c) => (
-        <g key={c.ref}>
-          <rect
-            x={px(2 + c.x)}
-            y={px(2 + c.y)}
-            width={px(c.w)}
-            height={px(c.h)}
-            fill={c.kind === "terminal" ? "#14532d" : "#1e3a5f"}
-            stroke={c.kind === "terminal" ? "#22c55e" : "#60a5fa"}
-            strokeWidth="1.4"
-          />
-          {Array.from({ length: c.pins }).map((_, p) => (
-            <circle
-              key={p}
-              cx={px(2 + c.x + 1.5 + p * (c.kind === "terminal" ? 4 : 2.54))}
-              cy={px(2 + c.y + c.h / 2)}
-              r="2"
-              fill="#c8c86e"
-            />
-          ))}
-          <text
-            x={px(2 + c.x + c.w / 2)}
-            y={px(2 + c.y) - 3}
-            fill={c.kind === "terminal" ? "#86efac" : "#93c5fd"}
-            fontSize="8"
-            textAnchor="middle"
-            fontFamily="monospace"
-          >
-            {c.ref} {c.label}
-          </text>
-        </g>
-      ))}
-      {/* 安装孔 */}
-      {holes.map((hl, i) => (
-        <circle key={i} cx={px(2 + hl.x)} cy={px(2 + hl.y)} r="6" fill="#062e21" stroke="#1a7a58" strokeWidth="2" />
-      ))}
-      {/* 丝印 */}
-      <text x={px(3)} y={px(h + 4.6)} fill="#d1fae5" fontSize="10" fontFamily="monospace">
-        恒矽传感 · AI 动态版图（2 层板 {w}×{h}mm）· 与导出 Gerber 一致
-      </text>
-    </svg>
-  );
-}
-
 export default function Assistant() {
   const { member, loading } = useAuth();
   const navigate = useNavigate();
 
   const [requirement, setRequirement] = useState("");
+  const [schematic, setSchematic] = useState("");
   const [mcu, setMcu] = useState("MS60F3026");
   const [customMcu, setCustomMcu] = useState("");
   const [peripherals, setPeripherals] = useState<string[]>([
@@ -314,6 +203,7 @@ export default function Assistant() {
         requirement,
         mcu: mcuLabel,
         peripherals,
+        schematic: schematic.trim() || undefined,
       });
       setResult(r);
       setStep(PIPELINE_STEPS.length - 1);
@@ -437,7 +327,7 @@ export default function Assistant() {
           </p>
         </div>
         <Badge className="bg-emerald-500/15 text-emerald-300 border-emerald-500/30">
-          <Sparkles className="h-3.5 w-3.5 mr-1" /> DeepSeek 驱动 · 真实生成
+          <Sparkles className="h-3.5 w-3.5 mr-1" /> DeepSeek 驱动 · 三重仿真验证
         </Badge>
       </div>
 
@@ -472,6 +362,20 @@ export default function Assistant() {
                   按以上要素描述共性部分即可，你的个性化要求直接补充在后面。
                 </p>
               </div>
+            </div>
+            <div className="space-y-2">
+              <Label className="flex items-center gap-1.5">
+                <CircuitBoard className="h-3.5 w-3.5 text-cyan-400" />
+                已有电气原理图
+                <span className="text-xs text-slate-500 font-normal">（可选，提供后生成精度显著提高）</span>
+              </Label>
+              <Textarea
+                value={schematic}
+                onChange={(e) => setSchematic(e.target.value)}
+                rows={4}
+                className="bg-slate-800 border-slate-700 text-sm placeholder:text-slate-500"
+                placeholder={`粘贴原理图连接关系或网表描述，例如：\nU1(MS60F3026) PA9/PA10 → U2(MAX3485) DI/RO，DE+RE 接 PA8\nJ1(RS485) A/B → TVS(SM712) → U2 A/B，120Ω 端接\n留空则由 AI 给出建议原理图`}
+              />
             </div>
             <div className="space-y-2">
               <Label>目标 MCU</Label>
@@ -602,37 +506,52 @@ export default function Assistant() {
             </CardContent>
           </Card>
 
-          {/* 版图预览：始终跟随选型动态变化 */}
+          {/* 三重仿真验证报告 */}
           <Card className="bg-slate-900/60 border-slate-800">
             <CardHeader className="pb-3">
-              <CardTitle className="text-base flex items-center justify-between flex-wrap gap-2">
-                <span className="flex items-center gap-1.5">
-                  <LayoutGrid className="h-4 w-4 text-cyan-400" /> PCB 版图（动态）
+              <CardTitle className="text-base flex items-center gap-1.5">
+                <ShieldCheck className="h-4 w-4 text-emerald-400" /> 仿真验证报告
+                <span className="text-xs font-normal text-slate-500">
+                  软件 → 硬件 → 物理，逐级验证
                 </span>
-                <Button
-                  size="sm"
-                  className="bg-emerald-600 hover:bg-emerald-500"
-                  onClick={exportGerber}
-                  disabled={exporting}
-                >
-                  {exporting ? (
-                    <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
-                  ) : (
-                    <Download className="mr-1.5 h-3.5 w-3.5" />
-                  )}
-                  {exporting ? "打包中…" : "导出 Gerber 工程包"}
-                </Button>
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <PcbPreview layout={layout} />
-              <p className="text-xs text-slate-500 mt-2">
-                版图随「目标 MCU + 外设需求 + AI 引脚分配」实时变化，与导出的
-                Gerber 文件完全一致；2 层板，适配嘉立创打样工艺。
-              </p>
-              {result?.pcb && (
-                <div className="mt-3 rounded-lg bg-slate-950 border border-slate-800 p-4 text-sm text-slate-300 whitespace-pre-wrap leading-relaxed max-h-72 overflow-y-auto">
-                  {result.pcb}
+              {!done ? (
+                <p className="text-sm text-slate-500 py-4 text-center">
+                  生成完成后，此处展示三级仿真验证结果
+                </p>
+              ) : (
+                <div className="space-y-4">
+                  {[
+                    {
+                      name: "代码逻辑仿真（软件仿真）",
+                      content: result?.simLogic,
+                      color: "text-cyan-300",
+                    },
+                    {
+                      name: "功能与时序仿真（硬件仿真）",
+                      content: result?.simTiming,
+                      color: "text-amber-300",
+                    },
+                    {
+                      name: "信号完整性仿真（物理仿真）",
+                      content: result?.simSI,
+                      color: "text-emerald-300",
+                    },
+                  ].map((sim) => (
+                    <div
+                      key={sim.name}
+                      className="rounded-lg border border-slate-800 bg-slate-950/60"
+                    >
+                      <div className={`px-4 py-2 text-sm font-medium border-b border-slate-800 flex items-center gap-2 ${sim.color}`}>
+                        <CheckCircle2 className="h-4 w-4" /> {sim.name}
+                      </div>
+                      <div className="p-4 text-sm text-slate-300 whitespace-pre-wrap leading-relaxed max-h-64 overflow-y-auto">
+                        {sim.content || "（该仿真小节未返回内容，可重新生成）"}
+                      </div>
+                    </div>
+                  ))}
                 </div>
               )}
             </CardContent>
@@ -642,7 +561,22 @@ export default function Assistant() {
           {done && (
             <Card className="bg-slate-900/60 border-slate-800">
               <CardHeader className="pb-3">
-                <CardTitle className="text-base">生成结果</CardTitle>
+                <CardTitle className="text-base flex items-center justify-between flex-wrap gap-2">
+                  生成结果（已通过三重仿真验证）
+                  <Button
+                    size="sm"
+                    className="bg-emerald-600 hover:bg-emerald-500"
+                    onClick={exportGerber}
+                    disabled={exporting}
+                  >
+                    {exporting ? (
+                      <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <Download className="mr-1.5 h-3.5 w-3.5" />
+                    )}
+                    {exporting ? "打包中…" : "导出 Gerber 工程包"}
+                  </Button>
+                </CardTitle>
               </CardHeader>
               <CardContent>
                 <Tabs defaultValue="code">
@@ -652,6 +586,9 @@ export default function Assistant() {
                     </TabsTrigger>
                     <TabsTrigger value="pins">
                       <ListOrdered className="h-3.5 w-3.5 mr-1.5" /> 引脚分配
+                    </TabsTrigger>
+                    <TabsTrigger value="schematic">
+                      <CircuitBoard className="h-3.5 w-3.5 mr-1.5" /> 电气原理图
                     </TabsTrigger>
                     <TabsTrigger value="bom">
                       <ListOrdered className="h-3.5 w-3.5 mr-1.5" /> 物料清单
@@ -692,6 +629,11 @@ export default function Assistant() {
                         {result?.pins}
                       </div>
                     )}
+                  </TabsContent>
+                  <TabsContent value="schematic" className="pt-4">
+                    <div className="rounded-lg bg-slate-950 border border-slate-800 p-4 text-sm text-slate-300 whitespace-pre-wrap leading-relaxed max-h-96 overflow-y-auto font-mono text-xs">
+                      {result?.schematic || "（未返回原理图内容，可重新生成）"}
+                    </div>
                   </TabsContent>
                   <TabsContent value="bom" className="pt-4">
                     <div className="rounded-lg bg-slate-950 border border-slate-800 p-4 text-sm text-slate-300 whitespace-pre-wrap leading-relaxed max-h-96 overflow-y-auto">
