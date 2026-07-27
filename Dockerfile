@@ -13,7 +13,7 @@ RUN npm install -g npm@11 --no-audit --no-fund
 RUN npm config set registry https://registry.npmmirror.com \
  && npm config set fetch-retries 5 \
  && npm config set fetch-retry-maxtimeout 120000 \
- && sed -i 's#https://registry.npmjs.org#https://registry.npmmirror.com#g' package-lock.json
+ && sed -i 's#https://registry.npmjs.org#https://registry.npmmirror.com#g; s#https://npm.mirrors.msh.team#https://registry.npmmirror.com#g' package-lock.json
 
 # 3. 安装并自检（vite 必须存在且能运行，否则构建立即失败暴露问题）
 RUN npm ci --no-audit --no-fund || npm install --no-audit --no-fund
