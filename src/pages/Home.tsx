@@ -91,10 +91,10 @@ export default function Home() {
               传感 · 智联 · 未来
             </div>
             <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold leading-tight mb-6">
-              让每一颗传感器
+              让每一颗芯片
               <br />
               <span className="bg-gradient-to-r from-cyan-400 to-blue-500 bg-clip-text text-transparent">
-                更快地走进产品
+                更快走进产品
               </span>
             </h1>
             <p className="text-lg text-slate-300 mb-8 leading-relaxed">
