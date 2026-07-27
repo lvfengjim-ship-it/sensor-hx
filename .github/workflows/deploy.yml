@@ -15,7 +15,7 @@ jobs:
       - name: 打包源码
         run: |
           tar --exclude=.git --exclude=node_modules --exclude=dist --exclude=.env \
-            -czf deploy.tar.gz .
+            -czf /tmp/deploy.tar.gz .
 
       - name: 上传到服务器
         uses: appleboy/scp-action@v0.1.7
@@ -23,7 +23,7 @@ jobs:
           host: ${{ secrets.ALIYUN_HOST }}
           username: ${{ secrets.ALIYUN_USER }}
           key: ${{ secrets.ALIYUN_SSH_KEY }}
-          source: "deploy.tar.gz"
+          source: "/tmp/deploy.tar.gz"
           target: "~/"
 
       - name: 解压并重建容器
