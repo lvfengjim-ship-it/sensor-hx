@@ -44,7 +44,7 @@ const products: Product[] = [
   {
     model: "Cortex-M0 系列",
     name: "32 位 MCU（ARM 内核）",
-    image: asset("images/product-mcu.png"),
+    image: asset("images/product-mcu.webp"),
     category: "mcu",
     desc: "基于 ARM Cortex-M0 内核的 32 位 FLASH MCU 产品线，覆盖通用控制、电机驱动与车规应用，最高主频 72MHz，集成 12 位高精度 ADC、运放、比较器与电机专用 PWM，提供完整开发工具链与整机方案支持。",
     specs: [
@@ -80,7 +80,7 @@ const products: Product[] = [
   {
     model: "RISC / 8051 系列",
     name: "8 位 MCU（高抗干扰）",
-    image: asset("images/product-mcu.png"),
+    image: asset("images/product-mcu.webp"),
     category: "mcu",
     desc: "涵盖通用 GPIO、通用 ADC、触摸按键与红外遥控应用的 8 位 MCU 产品家族，提供 OTP 与 FLASH 多种存储形态，以高抗干扰性、高可靠性著称，广泛应用于小家电、消费电子、智能家居与车身控制。",
     specs: [
@@ -118,7 +118,7 @@ const products: Product[] = [
   {
     model: "HS54123A",
     name: "漏电保护开关主控芯片",
-    image: asset("images/product-rcd.png"),
+    image: asset("images/product-rcd.webp"),
     category: "rcd",
     desc: "高性能 AC 型漏电保护专用芯片，内部集成稳压电源、放大电路、比较电路、跳闸控制器与跳闸驱动电路，外部仅需零序电流互感器及少量阻容器件。当 OP1/OP2 间漏电信号峰值超过 4.9mV 时，OS 引脚输出最小 20ms 高电平脉冲，直接驱动外部可控硅导通。",
     specs: [
@@ -171,7 +171,7 @@ const products: Product[] = [
   {
     model: "HS5412x 系列",
     name: "漏电保护芯片系列选型",
-    image: asset("images/product-rcd.png"),
+    image: asset("images/product-rcd.webp"),
     category: "rcd",
     desc: "覆盖 AC 型与 A 型漏电检测的完整产品家族，动作电压一致性优异，具备 VDD 钳位与 EMC 防护，适配漏电断路器、漏电继电器等不同结构需求。",
     specs: [
@@ -200,7 +200,7 @@ const products: Product[] = [
   {
     model: "CN11015A",
     name: "SSR 隔离反激式 AC-DC 电源芯片",
-    image: asset("images/product-power.png"),
+    image: asset("images/product-power.webp"),
     category: "power",
     desc: "副边反馈（SSR）隔离反激控制器，900V 耐压内置功率开关，待机功耗低至 50mW，保护功能完善，适用于智能电表、家电辅助电源与工业控制电源。",
     specs: [
@@ -235,7 +235,7 @@ const products: Product[] = [
   {
     model: "CN2204",
     name: "同步降压 DC-DC 转换器",
-    image: asset("images/product-power.png"),
+    image: asset("images/product-power.webp"),
     category: "power",
     desc: "5.5~38V 宽输入同步整流降压转换器，1A 输出能力，600kHz 开关频率，具备输入欠压/过压、输出短路、过热与 Hic-cup 模式保护，面向工业总线供电与宽压输入场景。",
     specs: [
@@ -269,7 +269,7 @@ const products: Product[] = [
   {
     model: "CN84AXXX",
     name: "低压差 LDO 稳压器系列",
-    image: asset("images/product-power.png"),
+    image: asset("images/product-power.webp"),
     category: "power",
     desc: "覆盖 0.15A~1A 输出电流的 LDO 产品家族，低静态电流、±2% 输出精度，多种固定输出电压与封装可选，为 MCU、传感器与通信模组提供干净的电源轨。",
     specs: [
@@ -302,7 +302,7 @@ const products: Product[] = [
   {
     model: "CN8513",
     name: "HPLC + HRF 双模电力载波通信芯片",
-    image: asset("images/product-iot.png"),
+    image: asset("images/product-iot.webp"),
     category: "power",
     desc: "面向智能电表与用电信息采集系统的双模通信 SoC，HPLC 电力线载波与 HRF 微功率无线互为备份，15 级路由中继，单网络支持 1024 个从节点，满足国网互联互通标准。",
     specs: [
@@ -331,7 +331,7 @@ const products: Product[] = [
   {
     model: "CN8913",
     name: "HPLC 专用电源管理芯片（PMU）",
-    image: asset("images/product-power.png"),
+    image: asset("images/product-power.webp"),
     category: "power",
     desc: "为载波通信模组量身定制的一体化 PMU：同步降压 800mA@3.3V 供给主芯片，升压 0.45A@12V 驱动线驱动器，并集成 2.55V 超级电容充电管理，保障掉电时刻的数据上报。",
     specs: [
@@ -359,7 +359,7 @@ const products: Product[] = [
   {
     model: "CN6218",
     name: "电力线驱动与接口配套芯片",
-    image: asset("images/product-power.png"),
+    image: asset("images/product-power.webp"),
     category: "power",
     desc: "集成 PMU 的大带宽线驱动器，将载波信号高效注入电力线；配套 CN71102 过零检测芯片与国网认证 RS485 收发器，构成电力物联终端的完整通信接口方案。",
     specs: [
@@ -390,7 +390,7 @@ const products: Product[] = [
   {
     model: "HPLC + HRF 双模",
     name: "电力载波通信单元（单相/三相模块）",
-    image: asset("images/product-iot.png"),
+    image: asset("images/product-iot.webp"),
     category: "iot",
     desc: "连接电能表与集中器的通信信道，核心采用 CN8513/CN8514 芯片，基于 OFDM 调制解调技术克服低压电力线干扰，实现高速率高可靠数据传输，HPLC 宽带载波与 HRF 无线双通道自动融合组网。",
     specs: [
@@ -411,7 +411,7 @@ const products: Product[] = [
   {
     model: "46mm × 20mm",
     name: "通用双模模组（透传）",
-    image: asset("images/iot-module.png"),
+    image: asset("images/iot-module.webp"),
     category: "iot",
     desc: "小尺寸双模通信模组，可按客户要求定制，与客户产品配合使用，为各类终端快速赋予电力物联通信能力，支持国网、南网互联互通协议。",
     specs: [
@@ -432,7 +432,7 @@ const products: Product[] = [
   {
     model: "国网 2022 版",
     name: "集中器Ⅰ型（2022 版）",
-    image: asset("images/iot-concentrator.png"),
+    image: asset("images/iot-concentrator.webp"),
     category: "iot",
     desc: "对用户用电信息进行采集的新一代智能物联边缘设备，采用高性能核心板及 LINUX 操作系统，软硬件解耦、模块化结构，符合国网《集中器Ⅰ型通用技术规范 2022》要求。",
     specs: [
@@ -454,7 +454,7 @@ const products: Product[] = [
   {
     model: "边缘计算终端",
     name: "台区智能融合终端",
-    image: asset("images/iot-fusion.png"),
+    image: asset("images/iot-fusion.webp"),
     category: "iot",
     desc: "配电台区的「最强大脑」，采用平台化硬件设计和边缘计算架构，支持就地化数据储存与决策分析，结合新一代配电自动化与用电信息采集系统，构建智能低压配电物联网。",
     specs: [
@@ -475,7 +475,7 @@ const products: Product[] = [
   {
     model: "基本型 · 1.0 级",
     name: "光伏通信协议转换器（基本型）",
-    image: asset("images/iot-pv-basic.png"),
+    image: asset("images/iot-pv-basic.webp"),
     category: "iot",
     desc: "安装在分布式光伏逆变器侧的数据采集与柔性调控网关，自动抄读逆变器电压、电流、功率等发电用电数据，支持市场主流光伏逆变器厂家协议，配套手机 APP 实现无码化配置。",
     specs: [
@@ -496,7 +496,7 @@ const products: Product[] = [
   {
     model: "增强型 · 0.5 级",
     name: "光伏通信协议转换器（增强型）",
-    image: asset("images/iot-pv-pro.png"),
+    image: asset("images/iot-pv-pro.webp"),
     category: "iot",
     desc: "在基本型基础上提升计量精度并增加电能质量与防孤岛监测能力，支持本地/远程控制输出，满足分布式光伏精细化管控与并网安全监测需求。",
     specs: [
@@ -517,7 +517,7 @@ const products: Product[] = [
   {
     model: "DL/T645-2007",
     name: "光伏通信协议转换器",
-    image: asset("images/iot-pv.png"),
+    image: asset("images/iot-pv.webp"),
     category: "iot",
     desc: "应用于光伏新能源接入系统的通用型协议转换器，实现光伏发电用电数据采集、监测与数据透传，上行支持 DL/T645-2007 规约接入用电信息采集系统，下行 MODBUS 兼容主流逆变器。",
     specs: [
@@ -538,7 +538,7 @@ const products: Product[] = [
   {
     model: "DL/T645-2007",
     name: "低压分支监测终端（LTU）",
-    image: asset("images/iot-ltu.png"),
+    image: asset("images/iot-ltu.webp"),
     category: "iot",
     desc: "部署在低压台区配电箱、分支箱侧，上行与融合终端交互、下行负责感知单元数据采集与监测，为拓扑识别、线损分析、三相不平衡、电能质量分析与故障定位提供数据支撑。",
     specs: [
@@ -559,7 +559,7 @@ const products: Product[] = [
   {
     model: "BDS3 · 1PPS",
     name: "定位授时终端",
-    image: asset("images/iot-beidou-timing.png"),
+    image: asset("images/iot-beidou-timing.webp"),
     category: "iot",
     desc: "集成北斗三号定位授时模组的高精度授时终端，支持 BDS3、GPS、GLONASS、Galileo 多系统联合定位，为金融、通信、电力、交通等行业提供可靠的时间同步与位置服务。",
     specs: [
@@ -580,7 +580,7 @@ const products: Product[] = [
   {
     model: "RTK 厘米级",
     name: "配电杆塔故障定位终端",
-    image: asset("images/iot-beidou.png"),
+    image: asset("images/iot-beidou.webp"),
     category: "iot",
     desc: "面向配电杆塔、信号塔场景的 RTK 高精度定位与倾斜监测终端，太阳能供电免维护运行，实时上报杆塔位置、倾斜与故障信息，支撑配电网精准运维。",
     specs: [
@@ -601,7 +601,7 @@ const products: Product[] = [
   {
     model: "±0.05° 高精度",
     name: "塔杆倾斜检测终端",
-    image: asset("images/iot-beidou-tilt.png"),
+    image: asset("images/iot-beidou-tilt.webp"),
     category: "iot",
     desc: "专为高压铁塔、建筑主体结构健康监测设计的高精度倾斜检测终端，钛酸锂电池循环寿命长，配合太阳能供电实现全天候无人值守监测。",
     specs: [
@@ -623,7 +623,7 @@ const products: Product[] = [
   {
     model: "HXP-2100",
     name: "工业压力变送器芯体",
-    image: asset("images/product-pressure.png"),
+    image: asset("images/product-pressure.webp"),
     category: "pressure",
     desc: "扩散硅压阻式压力敏感芯体，专为工业过程控制与液压系统设计，长期稳定性优异。",
     specs: [
@@ -638,7 +638,7 @@ const products: Product[] = [
   {
     model: "HXT-880",
     name: "数字温湿度传感器",
-    image: asset("images/product-temp.png"),
+    image: asset("images/product-temp.webp"),
     category: "temperature",
     desc: "CMOSens® 工艺单芯片温湿度一体传感器，出厂全量程标定，I²C 接口即插即用。",
     specs: [
@@ -653,7 +653,7 @@ const products: Product[] = [
   {
     model: "HXC-500",
     name: "霍尔电流传感器",
-    image: asset("images/product-current.png"),
+    image: asset("images/product-current.webp"),
     category: "current",
     desc: "开环霍尔原理，原边铜排穿孔设计，适用于变频器、光伏逆变器与充电桩电流检测。",
     specs: [
@@ -733,7 +733,7 @@ export default function Products() {
       <div className="grid gap-6 md:grid-cols-2">
         {filtered.map((p) => (
           <Card
-            key={p.model}
+            key={p.name}
             className={`bg-slate-900/60 border-slate-800 overflow-hidden hover:border-cyan-500/40 transition-colors ${
               p.tables ? "md:col-span-2" : ""
             }`}

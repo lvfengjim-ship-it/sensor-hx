@@ -290,7 +290,7 @@ export default function Assistant() {
           </div>
           <div className="relative">
             <img
-              src={asset("images/ai-assistant.png")}
+              src={asset("images/ai-assistant.webp")}
               alt="AI 编程助手"
               className="rounded-2xl border border-slate-800 w-full"
             />
