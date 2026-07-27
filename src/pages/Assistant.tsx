@@ -15,6 +15,9 @@ import {
   Sparkles,
   Lightbulb,
   ShieldCheck,
+  Upload,
+  FileText,
+  X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -144,11 +147,70 @@ export default function Assistant() {
   const [done, setDone] = useState(false);
   const [result, setResult] = useState<GenResult | null>(null);
   const [exporting, setExporting] = useState(false);
+  const [schFileName, setSchFileName] = useState("");
+  const [parsingFile, setParsingFile] = useState(false);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const schFileRef = useRef<HTMLInputElement | null>(null);
 
   const generate = trpc.ai.generate.useMutation({
     onError: (e) => toast.error(`生成失败：${e.message}`),
   });
+
+  const extractSch = trpc.ai.extractSchematic.useMutation({
+    onError: (e) => toast.error(e.message),
+  });
+
+  // 原理图文件上传：文本格式（.sch/.kicad_sch/.asc/.net/.txt/.md）直接读取；PDF 走服务端解析
+  const TEXT_SCH_EXTS = [".sch", ".kicad_sch", ".asc", ".net", ".cir", ".txt", ".md"];
+  const SCH_MAX_CHARS = 6000;
+
+  const onSchematicFile = async (file: File) => {
+    const ext = `.${file.name.split(".").pop()?.toLowerCase() ?? ""}`;
+    setParsingFile(true);
+    try {
+      if (ext === ".pdf") {
+        if (file.size > 6 * 1024 * 1024) {
+          toast.error("PDF 文件不能超过 6MB");
+          return;
+        }
+        const dataUrl = await new Promise<string>((resolve, reject) => {
+          const fr = new FileReader();
+          fr.onload = () => resolve(String(fr.result));
+          fr.onerror = () => reject(new Error("读取文件失败"));
+          fr.readAsDataURL(file);
+        });
+        const base64 = dataUrl.split(",")[1] ?? "";
+        const r = await extractSch.mutateAsync({
+          fileBase64: base64,
+          filename: file.name,
+        });
+        setSchematic(r.text);
+        setSchFileName(file.name + (r.truncated ? "（已截断）" : ""));
+        toast.success("已从 PDF 提取原理图文本");
+      } else if (TEXT_SCH_EXTS.includes(ext)) {
+        if (file.size > 2 * 1024 * 1024) {
+          toast.error("文本文件不能超过 2MB");
+          return;
+        }
+        const text = await file.text();
+        const trimmed = text.trim();
+        if (trimmed.length < 10) {
+          toast.error("文件内容为空或无法识别");
+          return;
+        }
+        setSchematic(trimmed.slice(0, SCH_MAX_CHARS));
+        setSchFileName(file.name + (trimmed.length > SCH_MAX_CHARS ? "（已截断）" : ""));
+        toast.success("已读取原理图文件内容");
+      } else {
+        toast.error(`暂不支持 ${ext} 格式，请使用 PDF / SCH / KiCad / ASC / NET / TXT`);
+      }
+    } catch {
+      // 错误已由 mutation onError 提示
+    } finally {
+      setParsingFile(false);
+      if (schFileRef.current) schFileRef.current.value = "";
+    }
+  };
 
   const mcuLabel = useMemo(() => {
     if (mcu === "__custom__") return customMcu.trim() || "自定义型号";
@@ -368,13 +430,56 @@ export default function Assistant() {
                 <CircuitBoard className="h-3.5 w-3.5 text-cyan-400" />
                 已有电气原理图
                 <span className="text-xs text-slate-500 font-normal">（可选，提供后生成精度显著提高）</span>
+                <span className="flex-1" />
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  disabled={parsingFile}
+                  onClick={() => schFileRef.current?.click()}
+                  className="h-7 px-2.5 text-xs border-slate-700 bg-slate-800 hover:bg-slate-700 text-cyan-300"
+                >
+                  {parsingFile ? (
+                    <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                  ) : (
+                    <Upload className="h-3 w-3 mr-1" />
+                  )}
+                  {parsingFile ? "解析中…" : "上传文件"}
+                </Button>
+                <input
+                  ref={schFileRef}
+                  type="file"
+                  className="hidden"
+                  accept=".pdf,.sch,.kicad_sch,.asc,.net,.cir,.txt,.md"
+                  onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    if (f) void onSchematicFile(f);
+                  }}
+                />
               </Label>
+              {schFileName && (
+                <div className="flex items-center gap-2 rounded-md border border-cyan-500/30 bg-cyan-500/10 px-2.5 py-1.5 text-xs text-cyan-300">
+                  <FileText className="h-3.5 w-3.5 shrink-0" />
+                  <span className="truncate">{schFileName}</span>
+                  <button
+                    type="button"
+                    aria-label="移除文件"
+                    className="ml-auto text-cyan-300/70 hover:text-cyan-100"
+                    onClick={() => {
+                      setSchFileName("");
+                      setSchematic("");
+                    }}
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              )}
               <Textarea
                 value={schematic}
                 onChange={(e) => setSchematic(e.target.value)}
                 rows={4}
                 className="bg-slate-800 border-slate-700 text-sm placeholder:text-slate-500"
-                placeholder={`粘贴原理图连接关系或网表描述，例如：\nU1(MS60F3026) PA9/PA10 → U2(MAX3485) DI/RO，DE+RE 接 PA8\nJ1(RS485) A/B → TVS(SM712) → U2 A/B，120Ω 端接\n留空则由 AI 给出建议原理图`}
+                placeholder={`粘贴原理图连接关系或网表描述，或点击右上角「上传文件」导入原理图文件\n支持：PDF（文本型）、SCH / KiCad、LTspice ASC、NET 网表、TXT\n示例：U1(MS60F3026) PA9/PA10 → U2(MAX3485) DI/RO，DE+RE 接 PA8\n留空则由 AI 给出建议原理图`}
               />
             </div>
             <div className="space-y-2">

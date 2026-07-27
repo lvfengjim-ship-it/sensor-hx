@@ -2,6 +2,7 @@ import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { createRouter, publicQuery } from "./middleware";
 import { requireMember } from "./member";
+import { findKnowledge, COMMON_DESIGN_RULES } from "./mcu-knowledge";
 
 const SYSTEM_PROMPT = `你是一名资深嵌入式硬件工程师，帮助 MCU 设计工程师完成从需求到可打板试样的完整设计，并对设计执行三级仿真验证。
 请严格按以下七个小节输出，标题一字不差：
@@ -120,6 +121,62 @@ function parseResult(md: string) {
 }
 
 export const aiRouter = createRouter({
+  /** 从 PDF 原理图文件中提取文本（连接关系/网表），供“已有电气原理图”输入使用 */
+  extractSchematic: publicQuery
+    .input(
+      z.object({
+        /** PDF 文件的 base64 编码（≤6MB 原文件） */
+        fileBase64: z.string().min(16).max(9_000_000),
+        filename: z.string().max(128).default("schematic.pdf"),
+      }),
+    )
+    .mutation(async ({ input, ctx }) => {
+      await requireMember(ctx); // 仅会员可用
+      let buffer: Buffer;
+      try {
+        buffer = Buffer.from(input.fileBase64, "base64");
+      } catch {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "文件编码无效，请重新选择 PDF 文件",
+        });
+      }
+      if (buffer.length > 6 * 1024 * 1024) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "PDF 文件不能超过 6MB",
+        });
+      }
+      if (!buffer.subarray(0, 5).toString("latin1").startsWith("%PDF")) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "所选文件不是有效的 PDF",
+        });
+      }
+      try {
+        const { PDFParse } = await import("pdf-parse");
+        const parser = new PDFParse({ data: new Uint8Array(buffer) });
+        const result = await parser.getText();
+        await parser.destroy();
+        const text = (result.text ?? "").replace(/\s+\n/g, "\n").trim();
+        if (text.length < 30) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message:
+              "该 PDF 几乎提取不到文字，可能是扫描件或图片型原理图。请改用文本描述连接关系，或导出为文本型 PDF。",
+          });
+        }
+        // 控制长度，避免超出生成接口的 schematic 上限
+        return { text: text.slice(0, 6000), truncated: text.length > 6000 };
+      } catch (err) {
+        if (err instanceof TRPCError) throw err;
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "PDF 解析失败，请确认文件未加密且未损坏",
+        });
+      }
+    }),
+
   generate: publicQuery
     .input(
       z.object({
@@ -131,9 +188,23 @@ export const aiRouter = createRouter({
     )
     .mutation(async ({ input, ctx }) => {
       await requireMember(ctx); // 仅会员可用
+
+      // 检索目标 MCU 的样本知识库，注入精确规格与设计要点
+      const kb = findKnowledge(input.mcu);
+      const kbPrompt = kb
+        ? [
+            `目标 MCU 知识库（来自官方样本/数据手册，必须严格遵循）：`,
+            `【${kb.title}】`,
+            `规格参数：${kb.specs}`,
+            `原理图与 PCB 设计要点：${kb.designNotes}`,
+          ].join("\n")
+        : `目标 MCU ${input.mcu} 暂无本地知识库条目，请基于该型号公开数据手册的通用规格进行设计，并在不确定的参数上注明假设。`;
+
       const userPrompt = [
         `项目需求：${input.requirement}`,
         `目标 MCU：${input.mcu}`,
+        kbPrompt,
+        COMMON_DESIGN_RULES,
         input.peripherals.length
           ? `需要的外设：${input.peripherals.join("、")}`
           : "",
