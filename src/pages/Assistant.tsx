@@ -48,6 +48,13 @@ import {
   type PinInfo,
 } from "@/lib/pcb";
 
+type CodeCheckReport = {
+  initialIssues: string[];
+  repairRounds: number;
+  finalErrors: string[];
+  finalWarnings: string[];
+};
+
 type GenResult = {
   code: string;
   simLogic: string;
@@ -57,12 +64,16 @@ type GenResult = {
   schematic: string;
   bom: string;
   raw: string;
+  codeCheck: CodeCheckReport;
 };
 import { asset } from "@/lib/asset";
 
 const PIPELINE_STEPS = [
   "需求解析与器件选型",
-  "固件框架与驱动生成",
+  "MCU 知识库匹配与驱动模板装载",
+  "固件完整实现生成（非框架建议）",
+  "代码完整性静态校验",
+  "缺陷自动修复与复检",
   "代码逻辑仿真（软件仿真）",
   "功能与时序仿真（硬件仿真）",
   "信号完整性仿真（物理仿真）",
@@ -129,6 +140,44 @@ const PIN_FALLBACK: PinInfo[] = [
   { pin: "P11", func: "I2C_SDA", note: "上拉 4.7kΩ" },
   { pin: "P20", func: "LED_STATUS", note: "运行指示灯" },
 ];
+
+/** 代码完整性校验报告徽标 */
+function CodeCheckBadge({ report }: { report: CodeCheckReport }) {
+  const ok = report.finalErrors.length === 0;
+  return (
+    <div
+      className={cn(
+        "rounded-lg border px-3.5 py-2.5 text-xs leading-relaxed",
+        ok
+          ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-300"
+          : "border-amber-500/30 bg-amber-500/10 text-amber-300",
+      )}
+    >
+      <div className="flex items-center gap-2 font-medium">
+        <ShieldCheck className="h-4 w-4 shrink-0" />
+        {ok
+          ? report.repairRounds > 0
+            ? `完整性校验通过（自动修复 ${report.repairRounds} 轮后达标：无占位符、函数定义齐全、结构完整）`
+            : "完整性校验通过（无占位符、函数定义齐全、结构完整）"
+          : "完整性校验后仍有待人工确认项"}
+      </div>
+      {!ok && (
+        <ul className="mt-1.5 space-y-0.5 text-amber-200/90">
+          {report.finalErrors.slice(0, 5).map((e) => (
+            <li key={e}>· {e}</li>
+          ))}
+        </ul>
+      )}
+      {report.finalWarnings.length > 0 && (
+        <ul className={cn("space-y-0.5", ok ? "mt-1.5 text-emerald-200/70" : "mt-1.5 text-amber-200/70")}>
+          {report.finalWarnings.slice(0, 5).map((w) => (
+            <li key={w}>△ {w}</li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
 
 export default function Assistant() {
   const { member, loading } = useAuth();
@@ -270,7 +319,16 @@ export default function Assistant() {
       setResult(r);
       setStep(PIPELINE_STEPS.length - 1);
       setDone(true);
-      toast.success("AI 生成完成，版图已按你的选型实时更新");
+      const cc = r.codeCheck;
+      if (cc && cc.finalErrors.length === 0) {
+        toast.success(
+          cc.repairRounds > 0
+            ? `生成完成：经 ${cc.repairRounds} 轮自动修复，代码通过完整性校验`
+            : "生成完成：代码一次通过完整性校验",
+        );
+      } else {
+        toast.warning("生成完成，代码存在待确认项，请查看校验报告");
+      }
     } catch {
       setStep(-1);
     } finally {
@@ -285,6 +343,21 @@ export default function Assistant() {
     setDone(false);
     setStep(-1);
     setResult(null);
+  };
+
+  const downloadCode = () => {
+    if (!result?.code) {
+      toast.error("暂无可下载的代码");
+      return;
+    }
+    const blob = new Blob([result.code], { type: "text/x-csrc;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "main.c";
+    a.click();
+    URL.revokeObjectURL(url);
+    toast.success("main.c 已下载");
   };
 
   const exportGerber = async () => {
@@ -667,20 +740,31 @@ export default function Assistant() {
             <Card className="bg-slate-900/60 border-slate-800">
               <CardHeader className="pb-3">
                 <CardTitle className="text-base flex items-center justify-between flex-wrap gap-2">
-                  生成结果（已通过三重仿真验证）
-                  <Button
-                    size="sm"
-                    className="bg-emerald-600 hover:bg-emerald-500"
-                    onClick={exportGerber}
-                    disabled={exporting}
-                  >
-                    {exporting ? (
-                      <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
-                    ) : (
-                      <Download className="mr-1.5 h-3.5 w-3.5" />
-                    )}
-                    {exporting ? "打包中…" : "导出 Gerber 工程包"}
-                  </Button>
+                  生成结果（完整性校验 + 三重仿真验证）
+                  <div className="flex gap-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="border-slate-700 bg-slate-800 hover:bg-slate-700 text-cyan-300"
+                      onClick={downloadCode}
+                    >
+                      <FileCode2 className="mr-1.5 h-3.5 w-3.5" />
+                      下载 main.c
+                    </Button>
+                    <Button
+                      size="sm"
+                      className="bg-emerald-600 hover:bg-emerald-500"
+                      onClick={exportGerber}
+                      disabled={exporting}
+                    >
+                      {exporting ? (
+                        <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        <Download className="mr-1.5 h-3.5 w-3.5" />
+                      )}
+                      {exporting ? "打包中…" : "导出 Gerber 工程包"}
+                    </Button>
+                  </div>
                 </CardTitle>
               </CardHeader>
               <CardContent>
@@ -699,7 +783,8 @@ export default function Assistant() {
                       <ListOrdered className="h-3.5 w-3.5 mr-1.5" /> 物料清单
                     </TabsTrigger>
                   </TabsList>
-                  <TabsContent value="code" className="pt-4">
+                  <TabsContent value="code" className="pt-4 space-y-3">
+                    {result?.codeCheck && <CodeCheckBadge report={result.codeCheck} />}
                     <pre className="rounded-lg bg-slate-950 border border-slate-800 p-4 text-xs leading-relaxed overflow-x-auto text-slate-300 max-h-96">
                       {result?.code}
                     </pre>
