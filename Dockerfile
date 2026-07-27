@@ -20,7 +20,8 @@ RUN npm ci --no-audit --no-fund || npm install --no-audit --no-fund
 RUN ls node_modules/.bin/vite && node_modules/.bin/vite --version
 
 COPY . .
-RUN npm run build
+# 显式以生产模式构建（Vite 默认继承 NODE_ENV，全局 development 会导致打出开发版 bundle）
+RUN NODE_ENV=production npm run build
 
 ENV NODE_ENV=production
 EXPOSE 3000

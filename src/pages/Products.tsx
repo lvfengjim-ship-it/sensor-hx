@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useSearchParams } from "react-router";
 import { FileText, Send, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -675,7 +676,13 @@ const categories = [
 ];
 
 export default function Products() {
-  const [category, setCategory] = useState("all");
+  const [searchParams, setSearchParams] = useSearchParams();
+  const catParam = searchParams.get("cat") ?? "all";
+  const category = categories.some((c) => c.key === catParam)
+    ? catParam
+    : "all";
+  const setCategory = (v: string) =>
+    setSearchParams(v === "all" ? {} : { cat: v }, { replace: true });
   const [inquiryProduct, setInquiryProduct] = useState<Product | null>(null);
   const [contact, setContact] = useState("");
   const [message, setMessage] = useState("");
