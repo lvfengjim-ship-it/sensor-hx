@@ -18,6 +18,13 @@ jobs:
           script: |
             set -e
             cd ~/sensor-hx
-            git fetch origin main
+            git config http.version HTTP/1.1
+            ok=0
+            for i in 1 2 3 4 5; do
+              git fetch origin main && { ok=1; break; }
+              echo "git fetch 第 $i 次失败，10s 后重试..."
+              sleep 10
+            done
+            [ "$ok" = "1" ] || { echo "git fetch 多次重试仍失败"; exit 1; }
             git reset --hard origin/main
             docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
