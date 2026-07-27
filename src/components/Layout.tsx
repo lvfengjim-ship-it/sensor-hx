@@ -198,7 +198,7 @@ export default function Layout() {
                 <span className="font-bold">恒矽传感</span>
               </div>
               <p className="text-sm text-slate-400 leading-relaxed">
-                专注传感器与嵌入式方案，为工程师提供从芯片选型、AI 辅助设计到成熟方案交易的一站式服务。
+                专注芯片销售与嵌入式方案，为工程师提供从芯片选型、AI 辅助设计到成熟方案交易的一站式服务。
               </p>
             </div>
             <div>

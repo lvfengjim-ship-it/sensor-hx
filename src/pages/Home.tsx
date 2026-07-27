@@ -19,7 +19,7 @@ const pillars = [
     image: asset("images/product-pressure.png"),
     title: "产品中心",
     subtitle: "传感器与 MCU 产品资料",
-    desc: "压力、温湿度、电流等工业级传感器与 32 位 MCU 产品线，完整数据手册、选型指南与样品申请一站获取。",
+    desc: "8位、32 位 MCU 产品线，多样化模拟和功率芯片，压力、温湿度、电流等工业级传感器，完整数据手册、选型指南与样品申请一站获取。",
     to: "/products",
     cta: "浏览产品",
   },
@@ -54,13 +54,13 @@ const stats = [
 const advantages = [
   {
     icon: ShieldCheck,
-    title: "车规级品质",
-    desc: "产品通过 AEC-Q100 等可靠性验证，全流程质量追溯。",
+    title: "工业级品质",
+    desc: "I级湿敏等级、耐高温芯片可供，多款产品通过 AEC-Q100 等可靠性验证，全流程质量追溯。",
   },
   {
     icon: Zap,
     title: "快速交付",
-    desc: "标准品 48 小时发货，定制方案两周内出样。",
+    desc: "标准库存品 48 小时发货，定制方案四周内出样。",
   },
   {
     icon: CircuitBoard,
