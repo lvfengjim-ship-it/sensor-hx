@@ -12,34 +12,27 @@ jobs:
       - name: 检出代码
         uses: actions/checkout@v4
 
-      - name: 打包源码
+      - name: 打包直传并在服务器重建
+        env:
+          SSH_KEY: ${{ secrets.ALIYUN_SSH_KEY }}
+          ALIYUN_HOST: ${{ secrets.ALIYUN_HOST }}
+          ALIYUN_USER: ${{ secrets.ALIYUN_USER }}
         run: |
-          tar --exclude=.git --exclude=node_modules --exclude=dist --exclude=.env \
-            -czf /tmp/deploy.tar.gz .
-
-      - name: 上传到服务器
-        uses: appleboy/scp-action@v0.1.7
-        with:
-          host: ${{ secrets.ALIYUN_HOST }}
-          username: ${{ secrets.ALIYUN_USER }}
-          key: ${{ secrets.ALIYUN_SSH_KEY }}
-          source: "/tmp/deploy.tar.gz"
-          target: "~/"
-
-      - name: 解压并重建容器
-        uses: appleboy/ssh-action@v1.2.0
-        with:
-          host: ${{ secrets.ALIYUN_HOST }}
-          username: ${{ secrets.ALIYUN_USER }}
-          key: ${{ secrets.ALIYUN_SSH_KEY }}
-          script: |
+          set -e
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          echo "$SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H "$ALIYUN_HOST" >> ~/.ssh/known_hosts 2>/dev/null
+          # 源码打包后经 SSH 管道直接流入服务器解压，服务器无需访问 GitHub
+          tar --exclude=.git --exclude=node_modules --exclude=dist --exclude=.env -czf - . | \
+          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=yes "$ALIYUN_USER@$ALIYUN_HOST" '
             set -e
             # 保留服务器上的 .env（含 DeepSeek Key 等私密配置，不入仓库）
             cp ~/sensor-hx/.env /tmp/sensor-hx.env.bak 2>/dev/null || true
             rm -rf ~/sensor-hx
             mkdir -p ~/sensor-hx
-            tar -xzf ~/deploy.tar.gz -C ~/sensor-hx
-            rm -f ~/deploy.tar.gz
+            tar -xzf - -C ~/sensor-hx
             cp /tmp/sensor-hx.env.bak ~/sensor-hx/.env 2>/dev/null || true
             cd ~/sensor-hx
             docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+          '
