@@ -16,7 +16,7 @@ import { asset } from "@/lib/asset";
 const pillars = [
   {
     icon: Cpu,
-    image: asset("images/product-pressure.webp"),
+    image: asset("images/home-products.webp"),
     title: "产品中心",
     subtitle: "传感器与 MCU 产品资料",
     desc: "8位、32 位 MCU 产品线，多样化模拟和功率芯片，压力、温湿度、电流等工业级传感器，完整数据手册、选型指南与样品申请一站获取。",
