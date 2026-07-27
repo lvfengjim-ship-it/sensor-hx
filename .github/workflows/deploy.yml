@@ -25,7 +25,9 @@ jobs:
           ssh-keyscan -H "$ALIYUN_HOST" >> ~/.ssh/known_hosts 2>/dev/null
           # 源码打包后经 SSH 管道直接流入服务器解压，服务器无需访问 GitHub
           tar --exclude=.git --exclude=node_modules --exclude=dist --exclude=.env -czf - . | \
-          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=yes "$ALIYUN_USER@$ALIYUN_HOST" '
+          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=yes \
+              -o ServerAliveInterval=20 -o ServerAliveCountMax=15 -o TCPKeepAlive=yes \
+              "$ALIYUN_USER@$ALIYUN_HOST" '
             set -e
             # 保留服务器上的 .env（含 DeepSeek Key 等私密配置，不入仓库）
             cp ~/sensor-hx/.env /tmp/sensor-hx.env.bak 2>/dev/null || true
