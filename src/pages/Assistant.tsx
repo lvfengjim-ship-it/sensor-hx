@@ -242,6 +242,7 @@ export default function Assistant() {
   ]);
   const [running, setRunning] = useState(false);
   const [step, setStep] = useState(-1);
+  const [elapsed, setElapsed] = useState(0); // 已等待秒数
   const [done, setDone] = useState(false);
   const [result, setResult] = useState<GenResult | null>(null);
   const [exporting, setExporting] = useState(false);
@@ -349,22 +350,43 @@ export default function Assistant() {
     setDone(false);
     setResult(null);
     setStep(0);
+    setElapsed(0);
     let current = 0;
+    let tick = 0;
     timerRef.current = setInterval(() => {
-      current += 1;
-      if (current >= PIPELINE_STEPS.length - 1) {
-        if (timerRef.current) clearInterval(timerRef.current);
-      } else {
-        setStep(current);
+      tick += 1;
+      setElapsed(tick);
+      if (tick % 2 === 0) {
+        current += 1;
+        if (current >= PIPELINE_STEPS.length - 1) {
+          // 步骤动画停在最后一步之前，仅保留耗时计时
+          current = PIPELINE_STEPS.length - 1;
+        } else {
+          setStep(current);
+        }
       }
-    }, 2000);
+    }, 1000);
+    // 客户端 20 分钟兜底：超时给出明确错误，不再无限等待
+    const CLIENT_TIMEOUT_MS = 20 * 60 * 1000;
+    const timeout = new Promise<never>((_, reject) =>
+      setTimeout(() => {
+        const err = new Error(
+          t("生成超时：AI 服务繁忙，请稍后重试", "Timed out: AI service is busy, please retry later"),
+        );
+        (err as Error & { clientTimeout?: boolean }).clientTimeout = true;
+        reject(err);
+      }, CLIENT_TIMEOUT_MS),
+    );
     try {
-      const r = await generate.mutateAsync({
-        requirement,
-        mcu: mcuLabel,
-        peripherals,
-        schematic: schematic.trim() || undefined,
-      });
+      const r = await Promise.race([
+        generate.mutateAsync({
+          requirement,
+          mcu: mcuLabel,
+          peripherals,
+          schematic: schematic.trim() || undefined,
+        }),
+        timeout,
+      ]);
       setResult(r);
       setStep(PIPELINE_STEPS.length - 1);
       setDone(true);
@@ -378,7 +400,11 @@ export default function Assistant() {
       } else {
         toast.warning(t("生成完成，代码存在待确认项，请查看校验报告", "Done, but some items need review — see the check report"));
       }
-    } catch {
+    } catch (e) {
+      // 客户端兜底超时等非 mutation 错误也需要明示
+      if ((e as Error & { clientTimeout?: boolean })?.clientTimeout) {
+        toast.error((e as Error).message);
+      }
       setStep(-1);
     } finally {
       if (timerRef.current) clearInterval(timerRef.current);
@@ -391,6 +417,7 @@ export default function Assistant() {
     setRunning(false);
     setDone(false);
     setStep(-1);
+    setElapsed(0);
     setResult(null);
   };
 
@@ -732,6 +759,23 @@ export default function Assistant() {
                       </span>
                     </div>
                   ))}
+                  {running && (
+                    <div className="pt-2 mt-1 border-t border-slate-800 text-xs text-slate-500 space-y-1">
+                      <p className="flex items-center gap-1.5">
+                        <Loader2 className="h-3 w-3 animate-spin text-cyan-500" />
+                        {t(
+                          `AI 正在深度生成，已等待 ${Math.floor(elapsed / 60)} 分 ${elapsed % 60} 秒`,
+                          `AI is generating — waited ${Math.floor(elapsed / 60)}m ${elapsed % 60}s`,
+                        )}
+                      </p>
+                      <p>
+                        {t(
+                          "完整工程生成通常需要 3~15 分钟（含代码校验与自动修复），请勿关闭页面；超过 20 分钟将自动中止并提示。",
+                          "A full engineering build typically takes 3–15 min (incl. code checks & auto-repair). Please keep this page open; it will abort with a notice after 20 min.",
+                        )}
+                      </p>
+                    </div>
+                  )}
                 </div>
               )}
             </CardContent>

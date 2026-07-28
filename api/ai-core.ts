@@ -131,6 +131,8 @@ export async function chatCompletion(
 
     const IDLE_MS = 90_000; // 流空闲超时：90 秒无数据判定停滞
     const MAX_CONT = 3; // 最多断点续写次数
+    const CALL_BUDGET_MS = 10 * 60 * 1000; // 单次生成调用总预算：10 分钟
+    const callDeadline = Date.now() + CALL_BUDGET_MS;
 
     /**
      * 读取一次 SSE 流。停滞/截断时返回已累积的部分内容（finished=false），
@@ -139,8 +141,15 @@ export async function chatCompletion(
     const streamOnce = async (
       msgs: unknown[],
     ): Promise<{ text: string; finished: boolean }> => {
+      const remaining = callDeadline - Date.now();
+      if (remaining < 15_000) {
+        throw Object.assign(new Error("生成总耗时超过上限"), { retryable: false });
+      }
       const ctrl = new AbortController();
-      const overall = setTimeout(() => ctrl.abort(), 300_000); // 单请求整体 5 分钟
+      const overall = setTimeout(
+        () => ctrl.abort(),
+        Math.min(300_000, remaining - 5_000), // 单请求整体超时，且不超过总预算
+      );
       let idle: ReturnType<typeof setTimeout> | undefined;
       const resetIdle = () => {
         if (idle) clearTimeout(idle);
@@ -253,18 +262,25 @@ export async function chatCompletion(
     const delays = [8000, 20000, 45000];
     let lastErr: Error | null = null;
     for (let i = 0; i <= delays.length; i++) {
+      if (callDeadline - Date.now() < 15_000) {
+        lastErr = new Error("生成总耗时超过上限");
+        break;
+      }
       try {
         return await attempt();
       } catch (e) {
         lastErr = e as Error;
         const retryable = (e as Error & { retryable?: boolean }).retryable !== false;
         if (!retryable || i === delays.length) break;
-        await new Promise((r) => setTimeout(r, delays[i]));
+        // 退避等待不能越过总预算
+        await new Promise((r) =>
+          setTimeout(r, Math.min(delays[i], Math.max(0, callDeadline - Date.now() - 10_000))),
+        );
       }
     }
     throw new TRPCError({
       code: "INTERNAL_SERVER_ERROR",
-      message: `Kimi 服务繁忙或调用失败，请稍后再试（${lastErr?.message ?? "未知错误"}）`,
+      message: `Kimi 服务繁忙或调用超时，请稍后重试（${lastErr?.message ?? "未知错误"}）`,
     });
   }
 
@@ -366,6 +382,9 @@ function outTokens(): number {
 }
 
 export async function runGeneration(input: GenInput): Promise<GenOutput> {
+  // 全流程软上限：各环节检查剩余时间，避免整体耗时无限拉长（前端 20 分钟兜底）
+  const FLOW_START = Date.now();
+  const flowTimedOut = () => Date.now() - FLOW_START > 15 * 60 * 1000;
   const kb = findKnowledge(input.mcu);
   const codePrompt = buildCodePrompt(kb, input.peripherals);
 
@@ -430,6 +449,7 @@ export async function runGeneration(input: GenInput): Promise<GenOutput> {
   let repairRounds = 0;
 
   while (!check.passed && repairRounds < MAX_REPAIR_ROUNDS) {
+    if (flowTimedOut()) break; // 时间预算耗尽：保留当前代码直接交付，附校验报告
     repairRounds += 1;
     const repairPrompt = [
       `你刚才交付的固件代码未通过服务端完整性静态校验，存在以下必须修复的问题：`,
@@ -448,7 +468,8 @@ export async function runGeneration(input: GenInput): Promise<GenOutput> {
         { role: "system", content: SYSTEM_PROMPT },
         { role: "user", content: repairPrompt },
       ],
-      outTokens(),
+      // 修复只输出代码，不需要七小节的长预算，缩减以缩短耗时
+      Math.min(outTokens(), 8192),
     );
     const fixedCode = extractCode(fixed);
     if (fixedCode.length > 500) code = fixedCode;
@@ -474,7 +495,7 @@ export async function runGeneration(input: GenInput): Promise<GenOutput> {
   }
   const missing = Object.entries(SECTION_KEYS).filter(([k]) => !sections[k]);
   let raw = md;
-  if (missing.length > 0) {
+  if (missing.length > 0 && !flowTimedOut()) {
     const contPrompt = [
       "上次输出因长度限制被截断，缺少以下小节。请只输出这些缺失小节，",
       "每个标题用 ## 级别且一字不差，内容要求与系统提示一致：",
