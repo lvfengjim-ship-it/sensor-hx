@@ -67,64 +67,93 @@ type GenResult = {
   codeCheck: CodeCheckReport;
 };
 import { asset } from "@/lib/asset";
+import { useLang, type LText } from "@/lib/i18n";
 
-const PIPELINE_STEPS = [
-  "需求解析与器件选型",
-  "MCU 知识库匹配与驱动模板装载",
-  "固件完整实现生成（非框架建议）",
-  "代码完整性静态校验",
-  "缺陷自动修复与复检",
-  "代码逻辑仿真（软件仿真）",
-  "功能与时序仿真（硬件仿真）",
-  "信号完整性仿真（物理仿真）",
-  "引脚分配与原理图校验",
-  "Gerber 工程文件打包",
+/** 外设选项的 bilingual 显示名（值保持中文键，与后端知识库/PCB 引擎一致） */
+const PERIPHERAL_LABELS: Record<string, LText> = {
+  "UART / RS485": { zh: "UART / RS485", en: "UART / RS485" },
+  "RS232": { zh: "RS232", en: "RS232" },
+  "CAN 总线": { zh: "CAN 总线", en: "CAN Bus" },
+  "I²C 传感器": { zh: "I²C 传感器", en: "I²C Sensor" },
+  "SPI 显示屏": { zh: "SPI 显示屏", en: "SPI Display" },
+  "ADC 模拟采集": { zh: "ADC 模拟采集", en: "ADC Analog Input" },
+  "DAC 模拟输出": { zh: "DAC 模拟输出", en: "DAC Analog Output" },
+  "PWM 输出": { zh: "PWM 输出", en: "PWM Output" },
+  "电机驱动（BLDC/步进）": { zh: "电机驱动（BLDC/步进）", en: "Motor Drive (BLDC/Stepper)" },
+  "继电器输出": { zh: "继电器输出", en: "Relay Output" },
+  "GPIO 按键 / LED": { zh: "GPIO 按键 / LED", en: "GPIO Buttons / LED" },
+  "触摸按键": { zh: "触摸按键", en: "Touch Keys" },
+  "RTC 实时时钟": { zh: "RTC 实时时钟", en: "RTC" },
+  "看门狗": { zh: "看门狗", en: "Watchdog" },
+  "EEPROM / Flash 存储": { zh: "EEPROM / Flash 存储", en: "EEPROM / Flash Storage" },
+  "USB 接口": { zh: "USB 接口", en: "USB Interface" },
+  "以太网": { zh: "以太网", en: "Ethernet" },
+  "Wi-Fi / 蓝牙模组": { zh: "Wi-Fi / 蓝牙模组", en: "Wi-Fi / BLE Module" },
+  "4G / Cat.1 模组": { zh: "4G / Cat.1 模组", en: "4G / Cat.1 Module" },
+  "LoRa 模组": { zh: "LoRa 模组", en: "LoRa Module" },
+  "北斗 / GPS 定位": { zh: "北斗 / GPS 定位", en: "BDS / GPS Positioning" },
+  "NFC / RFID": { zh: "NFC / RFID", en: "NFC / RFID" },
+  "蜂鸣器": { zh: "蜂鸣器", en: "Buzzer" },
+  "电池供电 / 低功耗": { zh: "电池供电 / 低功耗", en: "Battery / Low Power" },
+};
+
+const PIPELINE_STEPS: LText[] = [
+  { zh: "需求解析与器件选型", en: "Requirement analysis & part selection" },
+  { zh: "MCU 知识库匹配与驱动模板装载", en: "MCU knowledge match & driver templates" },
+  { zh: "固件完整实现生成（非框架建议）", en: "Full firmware generation (not skeletons)" },
+  { zh: "代码完整性静态校验", en: "Code integrity static checks" },
+  { zh: "缺陷自动修复与复检", en: "Auto-repair & re-check" },
+  { zh: "代码逻辑仿真（软件仿真）", en: "Logic simulation (software)" },
+  { zh: "功能与时序仿真（硬件仿真）", en: "Function & timing simulation (hardware)" },
+  { zh: "信号完整性仿真（物理仿真）", en: "Signal integrity simulation (physical)" },
+  { zh: "引脚分配与原理图校验", en: "Pin assignment & schematic review" },
+  { zh: "Gerber 工程文件打包", en: "Gerber package bundling" },
 ];
 
 // 产品中心在售 MCU（与产品页保持一致）
-const MCU_GROUPS = [
+const MCU_GROUPS: { label: LText; items: { value: string; label: LText }[] }[] = [
   {
-    label: "恒矽在售 · 32 位 MCU",
+    label: { zh: "恒矽在售 · 32 位 MCU", en: "Hengxi · 32-bit MCU" },
     items: [
-      { value: "MS60F3026", label: "MS60F3026（M0 72MHz，通用高性能）" },
-      { value: "MS32F031A6", label: "MS32F031A6（M0 48MHz，电机专用）" },
-      { value: "MS8040", label: "MS8040（M0 + 三相栅驱，BLDC）" },
-      { value: "MA60F9113", label: "MA60F9113（M0 48MHz，车规）" },
+      { value: "MS60F3026", label: { zh: "MS60F3026（M0 72MHz，通用高性能）", en: "MS60F3026 (M0 72MHz, general-purpose)" } },
+      { value: "MS32F031A6", label: { zh: "MS32F031A6（M0 48MHz，电机专用）", en: "MS32F031A6 (M0 48MHz, motor-dedicated)" } },
+      { value: "MS8040", label: { zh: "MS8040（M0 + 三相栅驱，BLDC）", en: "MS8040 (M0 + 3-phase gate driver, BLDC)" } },
+      { value: "MA60F9113", label: { zh: "MA60F9113（M0 48MHz，车规）", en: "MA60F9113 (M0 48MHz, automotive)" } },
     ],
   },
   {
-    label: "恒矽在售 · 8 位 MCU",
+    label: { zh: "恒矽在售 · 8 位 MCU", en: "Hengxi · 8-bit MCU" },
     items: [
-      { value: "MC51F7084", label: "MC51F7084（8051，通用 FLASH）" },
-      { value: "MC32F7361", label: "MC32F7361（RISC FLASH，16 路 ADC）" },
-      { value: "MC32T7051", label: "MC32T7051（RISC OTP，高通道 ADC）" },
-      { value: "MC51F8144", label: "MC51F8144（8051，26 路触摸）" },
-      { value: "MA51F8203", label: "MA51F8203（1T 8051，车规）" },
-      { value: "MC30P6310", label: "MC30P6310（RISC OTP，通用 GPIO）" },
+      { value: "MC51F7084", label: { zh: "MC51F7084（8051，通用 FLASH）", en: "MC51F7084 (8051, general FLASH)" } },
+      { value: "MC32F7361", label: { zh: "MC32F7361（RISC FLASH，16 路 ADC）", en: "MC32F7361 (RISC FLASH, 16-ch ADC)" } },
+      { value: "MC32T7051", label: { zh: "MC32T7051（RISC OTP，高通道 ADC）", en: "MC32T7051 (RISC OTP, high-ch ADC)" } },
+      { value: "MC51F8144", label: { zh: "MC51F8144（8051，26 路触摸）", en: "MC51F8144 (8051, 26 touch channels)" } },
+      { value: "MA51F8203", label: { zh: "MA51F8203（1T 8051，车规）", en: "MA51F8203 (1T 8051, automotive)" } },
+      { value: "MC30P6310", label: { zh: "MC30P6310（RISC OTP，通用 GPIO）", en: "MC30P6310 (RISC OTP, general GPIO)" } },
     ],
   },
   {
-    label: "其他型号（可开发支持）",
+    label: { zh: "其他型号（可开发支持）", en: "Other MCUs (supported)" },
     items: [
-      { value: "STM32F103", label: "STM32F103（兼容开发）" },
-      { value: "STM32F407", label: "STM32F407（兼容开发）" },
-      { value: "GD32E230", label: "GD32E230（兼容开发）" },
-      { value: "ESP32-S3", label: "ESP32-S3（兼容开发）" },
-      { value: "CH32V203", label: "CH32V203（兼容开发）" },
-      { value: "__custom__", label: "自定义型号（手动填写）…" },
+      { value: "STM32F103", label: { zh: "STM32F103（兼容开发）", en: "STM32F103 (compatible)" } },
+      { value: "STM32F407", label: { zh: "STM32F407（兼容开发）", en: "STM32F407 (compatible)" } },
+      { value: "GD32E230", label: { zh: "GD32E230（兼容开发）", en: "GD32E230 (compatible)" } },
+      { value: "ESP32-S3", label: { zh: "ESP32-S3（兼容开发）", en: "ESP32-S3 (compatible)" } },
+      { value: "CH32V203", label: { zh: "CH32V203（兼容开发）", en: "CH32V203 (compatible)" } },
+      { value: "__custom__", label: { zh: "自定义型号（手动填写）…", en: "Custom model (enter manually)…" } },
     ],
   },
 ];
 
-const PROMPT_TIPS = [
-  "采集 / 控制对象：测什么、控什么，传感器或执行器型号",
-  "通信接口与协议：RS485 / CAN / 以太网…，Modbus-RTU / CANopen…",
-  "工作节拍：采样周期、上报周期、实时性要求",
-  "供电与环境：电压范围、工作温度、功耗约束",
-  "人机交互：指示灯、按键、显示屏需求",
+const PROMPT_TIPS: LText[] = [
+  { zh: "采集 / 控制对象：测什么、控什么，传感器或执行器型号", en: "Sense / control targets: what to measure or drive, sensor or actuator models" },
+  { zh: "通信接口与协议：RS485 / CAN / 以太网…，Modbus-RTU / CANopen…", en: "Interfaces & protocols: RS485 / CAN / Ethernet…, Modbus-RTU / CANopen…" },
+  { zh: "工作节拍：采样周期、上报周期、实时性要求", en: "Timing: sampling period, reporting period, real-time requirements" },
+  { zh: "供电与环境：电压范围、工作温度、功耗约束", en: "Power & environment: voltage range, operating temperature, power budget" },
+  { zh: "人机交互：指示灯、按键、显示屏需求", en: "HMI: indicators, buttons, display requirements" },
 ];
 
-const REQUIREMENT_PLACEHOLDER = `建议按「共性要素」描述，AI 会自动补全工程细节：
+const REQUIREMENT_PLACEHOLDER_ZH = `建议按「共性要素」描述，AI 会自动补全工程细节：
 采集对象：如 4 路温度（HXT-880）+ 1 路 4-20mA 压力
 通信方式：如 RS485，Modbus-RTU 从站
 工作节拍：如 1 秒采样、10 秒上报
@@ -132,7 +161,15 @@ const REQUIREMENT_PLACEHOLDER = `建议按「共性要素」描述，AI 会自�
 交互需求：如运行指示灯 + 按键配置地址
 （你的特殊要求请直接补充在后面）`;
 
-const PIN_FALLBACK: PinInfo[] = [
+const REQUIREMENT_PLACEHOLDER_EN = `Describe using the "common elements" — AI fills in the engineering details:
+Sense targets: e.g. 4-ch temperature (HXT-880) + 1-ch 4-20mA pressure
+Communication: e.g. RS485, Modbus-RTU slave
+Timing: e.g. 1s sampling, 10s reporting
+Power & environment: e.g. DC 24V, -20℃~70℃ industrial site
+HMI: e.g. status LED + address-config button
+(Add your special requirements below)`;
+
+const PIN_FALLBACK_ZH: PinInfo[] = [
   { pin: "P01", func: "RS485_DE", note: "方向控制，默认低" },
   { pin: "P02", func: "UART_TX", note: "RS485 数据发送" },
   { pin: "P03", func: "UART_RX", note: "RS485 数据接收" },
@@ -141,8 +178,18 @@ const PIN_FALLBACK: PinInfo[] = [
   { pin: "P20", func: "LED_STATUS", note: "运行指示灯" },
 ];
 
+const PIN_FALLBACK_EN: PinInfo[] = [
+  { pin: "P01", func: "RS485_DE", note: "Direction control, default low" },
+  { pin: "P02", func: "UART_TX", note: "RS485 data TX" },
+  { pin: "P03", func: "UART_RX", note: "RS485 data RX" },
+  { pin: "P10", func: "I2C_SCL", note: "4.7kΩ pull-up" },
+  { pin: "P11", func: "I2C_SDA", note: "4.7kΩ pull-up" },
+  { pin: "P20", func: "LED_STATUS", note: "Status LED" },
+];
+
 /** 代码完整性校验报告徽标 */
 function CodeCheckBadge({ report }: { report: CodeCheckReport }) {
+  const { t } = useLang();
   const ok = report.finalErrors.length === 0;
   return (
     <div
@@ -157,9 +204,9 @@ function CodeCheckBadge({ report }: { report: CodeCheckReport }) {
         <ShieldCheck className="h-4 w-4 shrink-0" />
         {ok
           ? report.repairRounds > 0
-            ? `完整性校验通过（自动修复 ${report.repairRounds} 轮后达标：无占位符、函数定义齐全、结构完整）`
-            : "完整性校验通过（无占位符、函数定义齐全、结构完整）"
-          : "完整性校验后仍有待人工确认项"}
+            ? t(`完整性校验通过（自动修复 ${report.repairRounds} 轮后达标：无占位符、函数定义齐全、结构完整）`, `Integrity check passed (${report.repairRounds} auto-repair round(s): no placeholders, all functions defined, structure complete)`)
+            : t("完整性校验通过（无占位符、函数定义齐全、结构完整）", "Integrity check passed (no placeholders, all functions defined, structure complete)")
+          : t("完整性校验后仍有待人工确认项", "Items remain for manual review after checks")}
       </div>
       {!ok && (
         <ul className="mt-1.5 space-y-0.5 text-amber-200/90">
@@ -180,6 +227,7 @@ function CodeCheckBadge({ report }: { report: CodeCheckReport }) {
 }
 
 export default function Assistant() {
+  const { t, pick, lang } = useLang();
   const { member, loading } = useAuth();
   const navigate = useNavigate();
 
@@ -202,7 +250,7 @@ export default function Assistant() {
   const schFileRef = useRef<HTMLInputElement | null>(null);
 
   const generate = trpc.ai.generate.useMutation({
-    onError: (e) => toast.error(`生成失败：${e.message}`),
+    onError: (e) => toast.error(t("生成失败：" + e.message, "Generation failed: " + e.message)),
   });
 
   const extractSch = trpc.ai.extractSchematic.useMutation({
@@ -219,7 +267,7 @@ export default function Assistant() {
     try {
       if (ext === ".pdf") {
         if (file.size > 6 * 1024 * 1024) {
-          toast.error("PDF 文件不能超过 6MB");
+          toast.error(t("PDF 文件不能超过 6MB", "PDF must be under 6MB"));
           return;
         }
         const dataUrl = await new Promise<string>((resolve, reject) => {
@@ -234,24 +282,24 @@ export default function Assistant() {
           filename: file.name,
         });
         setSchematic(r.text);
-        setSchFileName(file.name + (r.truncated ? "（已截断）" : ""));
-        toast.success("已从 PDF 提取原理图文本");
+        setSchFileName(file.name + (r.truncated ? t("（已截断）", " (truncated)") : ""));
+        toast.success(t("已从 PDF 提取原理图文本", "Schematic text extracted from PDF"));
       } else if (TEXT_SCH_EXTS.includes(ext)) {
         if (file.size > 2 * 1024 * 1024) {
-          toast.error("文本文件不能超过 2MB");
+          toast.error(t("文本文件不能超过 2MB", "Text file must be under 2MB"));
           return;
         }
         const text = await file.text();
         const trimmed = text.trim();
         if (trimmed.length < 10) {
-          toast.error("文件内容为空或无法识别");
+          toast.error(t("文件内容为空或无法识别", "File is empty or unrecognizable"));
           return;
         }
         setSchematic(trimmed.slice(0, SCH_MAX_CHARS));
-        setSchFileName(file.name + (trimmed.length > SCH_MAX_CHARS ? "（已截断）" : ""));
-        toast.success("已读取原理图文件内容");
+        setSchFileName(file.name + (trimmed.length > SCH_MAX_CHARS ? t("（已截断）", " (truncated)") : ""));
+        toast.success(t("已读取原理图文件内容", "Schematic file loaded"));
       } else {
-        toast.error(`暂不支持 ${ext} 格式，请使用 PDF / SCH / KiCad / ASC / NET / TXT`);
+        toast.error(t(`暂不支持 ${ext} 格式，请使用 PDF / SCH / KiCad / ASC / NET / TXT`, `Format ${ext} not supported — use PDF / SCH / KiCad / ASC / NET / TXT`));
       }
     } catch {
       // 错误已由 mutation onError 提示
@@ -262,7 +310,7 @@ export default function Assistant() {
   };
 
   const mcuLabel = useMemo(() => {
-    if (mcu === "__custom__") return customMcu.trim() || "自定义型号";
+    if (mcu === "__custom__") return customMcu.trim() || t("自定义型号", "Custom MCU");
     for (const grp of MCU_GROUPS) {
       const hit = grp.items.find((i) => i.value === mcu);
       if (hit) return hit.value;
@@ -293,7 +341,7 @@ export default function Assistant() {
 
   const startGeneration = async () => {
     if (mcu === "__custom__" && !customMcu.trim()) {
-      toast.error("请填写自定义 MCU 型号");
+      toast.error(t("请填写自定义 MCU 型号", "Please enter a custom MCU model"));
       return;
     }
     setRunning(true);
@@ -323,11 +371,11 @@ export default function Assistant() {
       if (cc && cc.finalErrors.length === 0) {
         toast.success(
           cc.repairRounds > 0
-            ? `生成完成：经 ${cc.repairRounds} 轮自动修复，代码通过完整性校验`
-            : "生成完成：代码一次通过完整性校验",
+            ? t(`生成完成：经 ${cc.repairRounds} 轮自动修复，代码通过完整性校验`, `Done: code passed integrity checks after ${cc.repairRounds} auto-repair round(s)`)
+            : t("生成完成：代码一次通过完整性校验", "Done: code passed integrity checks on first pass"),
         );
       } else {
-        toast.warning("生成完成，代码存在待确认项，请查看校验报告");
+        toast.warning(t("生成完成，代码存在待确认项，请查看校验报告", "Done, but some items need review — see the check report"));
       }
     } catch {
       setStep(-1);
@@ -347,7 +395,7 @@ export default function Assistant() {
 
   const downloadCode = () => {
     if (!result?.code) {
-      toast.error("暂无可下载的代码");
+      toast.error(t("暂无可下载的代码", "No code to download yet"));
       return;
     }
     const blob = new Blob([result.code], { type: "text/x-csrc;charset=utf-8" });
@@ -357,7 +405,7 @@ export default function Assistant() {
     a.download = "main.c";
     a.click();
     URL.revokeObjectURL(url);
-    toast.success("main.c 已下载");
+    toast.success(t("main.c 已下载", "main.c downloaded"));
   };
 
   const exportGerber = async () => {
@@ -369,9 +417,9 @@ export default function Assistant() {
         pins: parsedPins,
         bom: result?.bom ?? "",
       });
-      toast.success("Gerber 工程包已下载，可直接上传打板平台");
+      toast.success(t("Gerber 工程包已下载，可直接上传打板平台", "Gerber package downloaded — ready to upload to your PCB fab"));
     } catch (e) {
-      toast.error(`导出失败：${e instanceof Error ? e.message : "未知错误"}`);
+      toast.error(t(`导出失败：${e instanceof Error ? e.message : "未知错误"}`, `Export failed: ${e instanceof Error ? e.message : "unknown error"}`));
     } finally {
       setExporting(false);
     }
@@ -390,23 +438,25 @@ export default function Assistant() {
         <div className="grid gap-10 lg:grid-cols-2 items-center">
           <div>
             <Badge className="bg-cyan-500/15 text-cyan-300 border-cyan-500/30 mb-4">
-              会员专享工具
+              {t("会员专享工具", "Members-Only Tool")}
             </Badge>
             <h1 className="text-3xl sm:text-4xl font-bold mb-5 leading-tight">
-              AI 编程助手
+              {t("AI 编程助手", "AI Coding Assistant")}
               <br />
-              <span className="text-cyan-400">从一句话到可打板的版图</span>
+              <span className="text-cyan-400">{t("从一句话到可打板的版图", "From one sentence to a fab-ready board")}</span>
             </h1>
             <p className="text-slate-400 leading-relaxed mb-6">
-              面向 MCU 设计工程师的 AI 辅助工作台：用自然语言描述需求，助手自动完成器件选型、固件代码生成、引脚分配、原理图建议，最终输出可直接送厂打板的
-              PCB 版图与 Gerber 工程文件。
+              {t(
+                "面向 MCU 设计工程师的 AI 辅助工作台：用自然语言描述需求，助手自动完成器件选型、固件代码生成、引脚分配、原理图建议，最终输出可直接送厂打板的 PCB 版图与 Gerber 工程文件。",
+                "An AI workspace for MCU design engineers: describe your needs in natural language — the assistant handles part selection, firmware generation, pin assignment and schematic suggestions, and outputs fab-ready PCB layouts and Gerber files.",
+              )}
             </p>
             <ul className="space-y-3 mb-8">
               {[
-                "自然语言需求 → 完整嵌入式工程",
-                "自动生成可编译的固件代码与驱动",
-                "PCB 版图布局布线，输出 Gerber 打板文件",
-                "与恒矽产品库深度联动，选型即所得",
+                t("自然语言需求 → 完整嵌入式工程", "Natural-language requirements → complete embedded projects"),
+                t("自动生成可编译的固件代码与驱动", "Auto-generated compilable firmware and drivers"),
+                t("PCB 版图布局布线，输出 Gerber 打板文件", "PCB layout & routing with Gerber output for fabrication"),
+                t("与恒矽产品库深度联动，选型即所得", "Deep integration with the Hengxi product catalog — what you select is what you get"),
               ].map((f) => (
                 <li key={f} className="flex items-start gap-2.5 text-sm text-slate-300">
                   <CheckCircle2 className="h-5 w-5 text-cyan-400 shrink-0" />
@@ -420,7 +470,7 @@ export default function Assistant() {
                 className="bg-cyan-600 hover:bg-cyan-500 px-8"
                 onClick={() => navigate("/register")}
               >
-                注册会员，立即使用
+                {t("注册会员，立即使用", "Sign up and start now")}
               </Button>
               <Button
                 size="lg"
@@ -428,7 +478,7 @@ export default function Assistant() {
                 className="border-slate-600 bg-transparent text-slate-200 hover:bg-slate-800"
                 onClick={() => navigate("/login")}
               >
-                已有账号，登录
+                {t("已有账号，登录", "Log in")}
               </Button>
             </div>
           </div>
@@ -455,14 +505,14 @@ export default function Assistant() {
       <div className="flex items-center justify-between mb-8 flex-wrap gap-3">
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold flex items-center gap-2.5">
-            <Bot className="h-7 w-7 text-cyan-400" /> AI 编程助手工作台
+            <Bot className="h-7 w-7 text-cyan-400" /> {t("AI 编程助手工作台", "AI Coding Workspace")}
           </h1>
           <p className="text-sm text-slate-400 mt-1.5">
-            你好，{member?.name} · 描述需求，AI 生成可打板的完整工程
+            {t(`你好，${member?.name}`, `Hello, ${member?.name}`)} · {t("描述需求，AI 生成可打板的完整工程", "describe your needs — AI builds a fab-ready project")}
           </p>
         </div>
         <Badge className="bg-emerald-500/15 text-emerald-300 border-emerald-500/30">
-          <Sparkles className="h-3.5 w-3.5 mr-1" /> DeepSeek 驱动 · 三重仿真验证
+          <Sparkles className="h-3.5 w-3.5 mr-1" /> {t("Kimi 驱动 · 三重仿真验证", "Powered by Kimi · Triple-sim verified")}
         </Badge>
       </div>
 
@@ -470,39 +520,39 @@ export default function Assistant() {
         {/* 左侧：需求输入 */}
         <Card className="bg-slate-900/60 border-slate-800 lg:col-span-2">
           <CardHeader>
-            <CardTitle className="text-base">项目需求</CardTitle>
+            <CardTitle className="text-base">{t("项目需求", "Project Requirements")}</CardTitle>
           </CardHeader>
           <CardContent className="space-y-5">
             <div className="space-y-2">
-              <Label>需求描述</Label>
+              <Label>{t("需求描述", "Requirement Description")}</Label>
               <Textarea
                 value={requirement}
                 onChange={(e) => setRequirement(e.target.value)}
                 rows={8}
                 className="bg-slate-800 border-slate-700 text-sm placeholder:text-slate-500"
-                placeholder={REQUIREMENT_PLACEHOLDER}
+                placeholder={lang === "zh" ? REQUIREMENT_PLACEHOLDER_ZH : REQUIREMENT_PLACEHOLDER_EN}
               />
               <div className="rounded-lg border border-slate-800 bg-slate-950/60 p-3">
                 <div className="flex items-center gap-1.5 text-xs text-cyan-300 mb-1.5">
-                  <Lightbulb className="h-3.5 w-3.5" /> 专业提示词模板（共性要素）
+                  <Lightbulb className="h-3.5 w-3.5" /> {t("专业提示词模板（共性要素）", "Professional Prompt Template (Common Elements)")}
                 </div>
                 <ul className="space-y-1">
-                  {PROMPT_TIPS.map((t) => (
-                    <li key={t} className="text-[11px] text-slate-400 leading-relaxed">
-                      · {t}
+                  {PROMPT_TIPS.map((tip) => (
+                    <li key={tip.zh} className="text-[11px] text-slate-400 leading-relaxed">
+                      · {pick(tip)}
                     </li>
                   ))}
                 </ul>
                 <p className="text-[11px] text-slate-500 mt-1.5">
-                  按以上要素描述共性部分即可，你的个性化要求直接补充在后面。
+                  {t("按以上要素描述共性部分即可，你的个性化要求直接补充在后面。", "Describe the common parts per the template above — add your specific requirements after.")}
                 </p>
               </div>
             </div>
             <div className="space-y-2">
               <Label className="flex items-center gap-1.5">
                 <CircuitBoard className="h-3.5 w-3.5 text-cyan-400" />
-                已有电气原理图
-                <span className="text-xs text-slate-500 font-normal">（可选，提供后生成精度显著提高）</span>
+                {t("已有电气原理图", "Existing Schematic")}
+                <span className="text-xs text-slate-500 font-normal">{t("（可选，提供后生成精度显著提高）", "(optional — greatly improves accuracy)")}</span>
                 <span className="flex-1" />
                 <Button
                   type="button"
@@ -517,7 +567,7 @@ export default function Assistant() {
                   ) : (
                     <Upload className="h-3 w-3 mr-1" />
                   )}
-                  {parsingFile ? "解析中…" : "上传文件"}
+                  {parsingFile ? t("解析中…", "Parsing…") : t("上传文件", "Upload File")}
                 </Button>
                 <input
                   ref={schFileRef}
@@ -552,24 +602,26 @@ export default function Assistant() {
                 onChange={(e) => setSchematic(e.target.value)}
                 rows={4}
                 className="bg-slate-800 border-slate-700 text-sm placeholder:text-slate-500"
-                placeholder={`粘贴原理图连接关系或网表描述，或点击右上角「上传文件」导入原理图文件\n支持：PDF（文本型）、SCH / KiCad、LTspice ASC、NET 网表、TXT\n示例：U1(MS60F3026) PA9/PA10 → U2(MAX3485) DI/RO，DE+RE 接 PA8\n留空则由 AI 给出建议原理图`}
+                placeholder={lang === "zh"
+                  ? `粘贴原理图连接关系或网表描述，或点击右上角「上传文件」导入原理图文件\n支持：PDF（文本型）、SCH / KiCad、LTspice ASC、NET 网表、TXT\n示例：U1(MS60F3026) PA9/PA10 → U2(MAX3485) DI/RO，DE+RE 接 PA8\n留空则由 AI 给出建议原理图`
+                  : `Paste schematic connections or netlist text, or click "Upload File" above\nSupported: PDF (text-based), SCH / KiCad, LTspice ASC, NET netlist, TXT\nExample: U1(MS60F3026) PA9/PA10 → U2(MAX3485) DI/RO, DE+RE to PA8\nLeave empty and AI will propose a schematic`}
               />
             </div>
             <div className="space-y-2">
-              <Label>目标 MCU</Label>
+              <Label>{t("目标 MCU", "Target MCU")}</Label>
               <Select value={mcu} onValueChange={setMcu}>
                 <SelectTrigger className="bg-slate-800 border-slate-700">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent className="bg-slate-800 border-slate-700 text-slate-200">
                   {MCU_GROUPS.map((grp) => (
-                    <SelectGroup key={grp.label}>
+                    <SelectGroup key={grp.label.zh}>
                       <SelectLabel className="text-cyan-400 text-xs">
-                        {grp.label}
+                        {pick(grp.label)}
                       </SelectLabel>
                       {grp.items.map((o) => (
                         <SelectItem key={o.value} value={o.value}>
-                          {o.label}
+                          {pick(o.label)}
                         </SelectItem>
                       ))}
                     </SelectGroup>
@@ -580,19 +632,19 @@ export default function Assistant() {
                 <Input
                   value={customMcu}
                   onChange={(e) => setCustomMcu(e.target.value)}
-                  placeholder="输入型号，如 MSP430FR5969、nRF52840…"
+                  placeholder={t("输入型号，如 MSP430FR5969、nRF52840…", "Enter a model, e.g. MSP430FR5969, nRF52840…")}
                   className="bg-slate-800 border-slate-700 text-sm"
                 />
               )}
               <p className="text-[11px] text-slate-500">
-                优先推荐恒矽在售型号（选型即所得，可提供样品）；其他型号同样支持开发。
+                {t("优先推荐恒矽在售型号（选型即所得，可提供样品）；其他型号同样支持开发。", "Hengxi in-stock MCUs recommended (samples available); other models are also supported.")}
               </p>
             </div>
             <div className="space-y-2.5">
               <Label>
-                外设需求
+                {t("外设需求", "Peripherals")}
                 <span className="text-xs text-slate-500 font-normal ml-2">
-                  已选 {peripherals.length} 项
+                  {t(`已选 ${peripherals.length} 项`, `${peripherals.length} selected`)}
                 </span>
               </Label>
               <div className="grid grid-cols-2 gap-2.5 max-h-56 overflow-y-auto pr-1">
@@ -606,7 +658,7 @@ export default function Assistant() {
                       onCheckedChange={() => togglePeripheral(p)}
                       className="border-slate-600 data-[state=checked]:bg-cyan-600"
                     />
-                    {p}
+                    {PERIPHERAL_LABELS[p] ? pick(PERIPHERAL_LABELS[p]) : p}
                   </label>
                 ))}
               </div>
@@ -622,7 +674,7 @@ export default function Assistant() {
                 ) : (
                   <Play className="mr-2 h-4 w-4" />
                 )}
-                {running ? "AI 生成中…" : "开始生成"}
+                {running ? t("AI 生成中…", "Generating…") : t("开始生成", "Generate")}
               </Button>
               {(done || running) && (
                 <Button
@@ -643,7 +695,7 @@ export default function Assistant() {
           <Card className="bg-slate-900/60 border-slate-800">
             <CardHeader className="pb-3">
               <CardTitle className="text-base flex items-center justify-between">
-                生成流程
+                {t("生成流程", "Generation Pipeline")}
                 {step >= 0 && (
                   <span className="text-sm font-normal text-cyan-400">
                     {progress}%
@@ -654,12 +706,12 @@ export default function Assistant() {
             <CardContent>
               {step < 0 ? (
                 <p className="text-sm text-slate-500 py-4 text-center">
-                  填写左侧需求，点击「开始生成」
+                  {t("填写左侧需求，点击「开始生成」", "Fill in the form on the left and click \"Generate\"")}
                 </p>
               ) : (
                 <div className="space-y-2.5">
                   {PIPELINE_STEPS.map((s, i) => (
-                    <div key={s} className="flex items-center gap-3 text-sm">
+                    <div key={s.zh} className="flex items-center gap-3 text-sm">
                       {done || i < step ? (
                         <CheckCircle2 className="h-5 w-5 text-emerald-400 shrink-0" />
                       ) : i === step && running ? (
@@ -675,7 +727,7 @@ export default function Assistant() {
                           i === step && running && "text-cyan-300",
                         )}
                       >
-                        {s}
+                        {pick(s)}
                       </span>
                     </div>
                   ))}
@@ -688,32 +740,32 @@ export default function Assistant() {
           <Card className="bg-slate-900/60 border-slate-800">
             <CardHeader className="pb-3">
               <CardTitle className="text-base flex items-center gap-1.5">
-                <ShieldCheck className="h-4 w-4 text-emerald-400" /> 仿真验证报告
+                <ShieldCheck className="h-4 w-4 text-emerald-400" /> {t("仿真验证报告", "Simulation Report")}
                 <span className="text-xs font-normal text-slate-500">
-                  软件 → 硬件 → 物理，逐级验证
+                  {t("软件 → 硬件 → 物理，逐级验证", "Software → hardware → physical, level by level")}
                 </span>
               </CardTitle>
             </CardHeader>
             <CardContent>
               {!done ? (
                 <p className="text-sm text-slate-500 py-4 text-center">
-                  生成完成后，此处展示三级仿真验证结果
+                  {t("生成完成后，此处展示三级仿真验证结果", "Simulation results appear here after generation")}
                 </p>
               ) : (
                 <div className="space-y-4">
                   {[
                     {
-                      name: "代码逻辑仿真（软件仿真）",
+                      name: t("代码逻辑仿真（软件仿真）", "Logic Simulation (Software)"),
                       content: result?.simLogic,
                       color: "text-cyan-300",
                     },
                     {
-                      name: "功能与时序仿真（硬件仿真）",
+                      name: t("功能与时序仿真（硬件仿真）", "Function & Timing Simulation (Hardware)"),
                       content: result?.simTiming,
                       color: "text-amber-300",
                     },
                     {
-                      name: "信号完整性仿真（物理仿真）",
+                      name: t("信号完整性仿真（物理仿真）", "Signal Integrity Simulation (Physical)"),
                       content: result?.simSI,
                       color: "text-emerald-300",
                     },
@@ -726,7 +778,7 @@ export default function Assistant() {
                         <CheckCircle2 className="h-4 w-4" /> {sim.name}
                       </div>
                       <div className="p-4 text-sm text-slate-300 whitespace-pre-wrap leading-relaxed max-h-64 overflow-y-auto">
-                        {sim.content || "（该仿真小节未返回内容，可重新生成）"}
+                        {sim.content || t("（该仿真小节未返回内容，可重新生成）", "(This section was not returned — try regenerating)")}
                       </div>
                     </div>
                   ))}
@@ -740,7 +792,7 @@ export default function Assistant() {
             <Card className="bg-slate-900/60 border-slate-800">
               <CardHeader className="pb-3">
                 <CardTitle className="text-base flex items-center justify-between flex-wrap gap-2">
-                  生成结果（完整性校验 + 三重仿真验证）
+                  {t("生成结果（完整性校验 + 三重仿真验证）", "Results (integrity check + triple simulation)")}
                   <div className="flex gap-2">
                     <Button
                       size="sm"
@@ -749,7 +801,7 @@ export default function Assistant() {
                       onClick={downloadCode}
                     >
                       <FileCode2 className="mr-1.5 h-3.5 w-3.5" />
-                      下载 main.c
+                      {t("下载 main.c", "Download main.c")}
                     </Button>
                     <Button
                       size="sm"
@@ -762,7 +814,7 @@ export default function Assistant() {
                       ) : (
                         <Download className="mr-1.5 h-3.5 w-3.5" />
                       )}
-                      {exporting ? "打包中…" : "导出 Gerber 工程包"}
+                      {exporting ? t("打包中…", "Packing…") : t("导出 Gerber 工程包", "Export Gerber Package")}
                     </Button>
                   </div>
                 </CardTitle>
@@ -771,16 +823,16 @@ export default function Assistant() {
                 <Tabs defaultValue="code">
                   <TabsList className="bg-slate-800 border border-slate-700">
                     <TabsTrigger value="code">
-                      <FileCode2 className="h-3.5 w-3.5 mr-1.5" /> 固件代码
+                      <FileCode2 className="h-3.5 w-3.5 mr-1.5" /> {t("固件代码", "Firmware")}
                     </TabsTrigger>
                     <TabsTrigger value="pins">
-                      <ListOrdered className="h-3.5 w-3.5 mr-1.5" /> 引脚分配
+                      <ListOrdered className="h-3.5 w-3.5 mr-1.5" /> {t("引脚分配", "Pinout")}
                     </TabsTrigger>
                     <TabsTrigger value="schematic">
-                      <CircuitBoard className="h-3.5 w-3.5 mr-1.5" /> 电气原理图
+                      <CircuitBoard className="h-3.5 w-3.5 mr-1.5" /> {t("电气原理图", "Schematic")}
                     </TabsTrigger>
                     <TabsTrigger value="bom">
-                      <ListOrdered className="h-3.5 w-3.5 mr-1.5" /> 物料清单
+                      <ListOrdered className="h-3.5 w-3.5 mr-1.5" /> {t("物料清单", "BOM")}
                     </TabsTrigger>
                   </TabsList>
                   <TabsContent value="code" className="pt-4 space-y-3">
@@ -794,9 +846,9 @@ export default function Assistant() {
                       <table className="w-full text-sm">
                         <thead>
                           <tr className="text-left text-slate-400 border-b border-slate-800">
-                            <th className="py-2 pr-4 font-medium">引脚</th>
-                            <th className="py-2 pr-4 font-medium">功能</th>
-                            <th className="py-2 font-medium">备注</th>
+                            <th className="py-2 pr-4 font-medium">{t("引脚", "Pin")}</th>
+                            <th className="py-2 pr-4 font-medium">{t("功能", "Function")}</th>
+                            <th className="py-2 font-medium">{t("备注", "Notes")}</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -822,7 +874,7 @@ export default function Assistant() {
                   </TabsContent>
                   <TabsContent value="schematic" className="pt-4">
                     <div className="rounded-lg bg-slate-950 border border-slate-800 p-4 text-sm text-slate-300 whitespace-pre-wrap leading-relaxed max-h-96 overflow-y-auto font-mono text-xs">
-                      {result?.schematic || "（未返回原理图内容，可重新生成）"}
+                      {result?.schematic || t("（未返回原理图内容，可重新生成）", "(No schematic content returned — try regenerating)")}
                     </div>
                   </TabsContent>
                   <TabsContent value="bom" className="pt-4">

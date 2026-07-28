@@ -19,6 +19,7 @@ import { toast } from "sonner";
 import { trpc } from "@/providers/trpc";
 import { useAuth } from "@/lib/auth";
 import { asset } from "@/lib/asset";
+import { useLang } from "@/lib/i18n";
 
 type SpecTable = {
   title: string;
@@ -817,12 +818,447 @@ const products: Product[] = [
   },
 ];
 
+// ================= 英文内容（键 = 中文 name） =================
+type ProductEn = {
+  name: string;
+  desc: string;
+  specLabels?: string[];
+  tags?: string[];
+  highlights?: string[];
+  tables?: { title: string; columns: string[]; rowsEn?: string[][] }[];
+};
+
+const PRODUCTS_EN: Record<string, ProductEn> = {
+  "32 位 MCU（ARM 内核）": {
+    name: "32-bit MCU (ARM Core)",
+    desc: "32-bit FLASH MCU family based on the ARM Cortex-M0 core, covering general control, motor drive and automotive applications. Up to 72MHz, integrating 12-bit high-precision ADC, op-amps, comparators and motor-dedicated PWM, with a complete toolchain and system-level solution support.",
+    specLabels: ["Core", "Frequency", "Memory", "Supply Voltage", "Temperature", "Packages"],
+    tags: ["General Control", "Motor BLDC", "Automotive AEC-Q100", "Class B 60730"],
+    highlights: [
+      "MS60F302x general series: 72MHz, 128KB FLASH, 59 GPIOs",
+      "MS32F031A6 motor-dedicated: 3 integrated op-amps, 2 comparators",
+      "MS8040/8080 with integrated high-voltage 3-phase gate driver — single-chip BLDC",
+      "MA60F9113 automotive series: lamps & doors, cabin charging, in-vehicle BLDC",
+    ],
+    tables: [{
+      title: "Representative 32-bit MCU Selection",
+      columns: ["Part No.", "Frequency", "FLASH/SRAM", "Key Peripherals", "Packages", "Typical Applications"],
+      rowsEn: [
+        ["MS60F3026", "72MHz", "128K / 16K", "Advanced PWM (4ch complementary + brake), DMA, UART/IIC/SPI", "LQFP64/48/32", "Motor control, industrial, digital power"],
+        ["MS32F031A6", "48MHz", "32K / 4K", "3×OPA, 2×CMP, 12-bit ADC, RTC", "LQFP48/32", "Motors, e-bikes, handheld power tools"],
+        ["MS8040", "48MHz", "32K / 4K", "Integrated HV 3-phase gate driver for MOSFET/IGBT", "QFN", "BLDC garden tools, mowers, fans"],
+        ["MS32F7223", "—", "SoC", "Sensor signal-chain SoC, 4~20mA support", "—", "Digital barometric/pressure sensors"],
+        ["MA60F9113", "48MHz", "32K / 4K", "AEC-Q100, 12-bit 1MHz ADC, LIN, ISO7816", "LQFP48", "Lamps & doors, cabin charging, dashboards, BLDC"],
+      ],
+    }],
+  },
+  "通用高性能 32 位 MCU": {
+    name: "General-Purpose High-Performance 32-bit MCU",
+    desc: "Cortex-M0 core at 72MHz, 128KB FLASH + 16KB SRAM, 59 GPIOs. 16-bit advanced PWM with 4-channel complementary output and brake protection, targeting motor control and digital power.",
+    specLabels: ["Core / Frequency", "FLASH / SRAM", "Timers", "Packages"],
+    tags: ["Advanced PWM + Brake", "DMA", "Class B 60730"],
+  },
+  "电机控制专用 MCU": {
+    name: "Motor Control Dedicated MCU",
+    desc: "Motor-control SoC integrating 3 op-amps and 2 comparators, drastically reducing external components — a cost-effective controller for e-bike controllers, handheld power tools, fans and pumps.",
+    specLabels: ["Core / Frequency", "FLASH / SRAM", "Analog Peripherals", "Packages"],
+    tags: ["Integrated OPA & CMP", "RTC", "Motor FOC Solution"],
+  },
+  "BLDC 集成栅极驱动 SoC": {
+    name: "BLDC SoC with Integrated Gate Driver",
+    desc: "Cortex-M0 core combined with a high-voltage 3-phase gate driver, directly driving MOSFETs / IGBTs — single-chip BLDC motor control with significantly reduced PCB area.",
+    specLabels: ["Core", "Drive Capability", "Power Devices", "Packages"],
+    tags: ["Single-Chip BLDC", "Garden Tools", "Mowers / Fans"],
+  },
+  "车规级 32 位 MCU": {
+    name: "Automotive-Grade 32-bit MCU",
+    desc: "AEC-Q100 qualified automotive MCU with integrated LIN transceiver and ISO7816 interface, 12-bit 1MHz ADC with op-amps — covering a wide range of body and cabin applications.",
+    specLabels: ["Core / Frequency", "FLASH / SRAM", "Automotive Interfaces", "Packages"],
+    tags: ["AEC-Q100", "Lamps & Doors", "Cabin Charging / Dashboard"],
+  },
+  "8 位 MCU（高抗干扰）": {
+    name: "8-bit MCU (High Noise Immunity)",
+    desc: "8-bit MCU family covering general GPIO, general ADC, touch-key and IR remote applications, available in OTP and FLASH variants. Renowned for high noise immunity and reliability — widely used in home appliances, consumer electronics, smart home and body control.",
+    specLabels: ["Core", "Frequency", "Memory", "ADC", "Standby Current", "Packages"],
+    tags: ["General GPIO", "Touch Keys", "IR Remote", "Automotive 8051"],
+    highlights: [
+      "General GPIO series: minimal peripherals, small package, low cost",
+      "General ADC series: up to 16 channels of 12-bit ADC",
+      "Touch-key series: 26 high-sensitivity TK channels, water/oil resistant",
+      "MA51F8203 automotive 1T 8051: body control, seats, lighting, wipers",
+    ],
+    tables: [{
+      title: "Representative 8-bit MCU Selection",
+      columns: ["Part No.", "Core / Memory", "Frequency", "Highlights", "Packages", "Typical Applications"],
+      rowsEn: [
+        ["MC30P6310", "RISC / 1K×14 OTP", "8MHz", "General GPIO, standby <1μA", "SOP8/DIP8/SOT23-6", "Small appliances, remotes"],
+        ["MC32T7051", "RISC / 2K×16 OTP", "8MHz", "16ch 12-bit ADC", "SOP16/14/8, QFN16", "Sensor interfaces, small appliances"],
+        ["MC32F7361", "RISC / 2K×16 FLASH", "16MHz", "16ch 12-bit ADC + EEPROM", "SOP20/16/14/8", "General control"],
+        ["MC51F7084", "8051 / 16K×8 FLASH", "16MHz", "Complementary PWM, UART/IIC/SPI", "TSSOP20/QFN20", "Industrial, home appliances"],
+        ["MC51F8144", "8051 / 16K×8 FLASH", "—", "26 TK touch + 26ch 12-bit ADC", "SOP28/24", "Touch switches, induction cookers"],
+        ["MA51F8203", "1T 8051 / FLASH", "—", "Automotive, 12-bit ADC, 16-bit complementary PWM", "—", "Body control, lighting, wipers, cooling fans"],
+      ],
+    }],
+  },
+  "通用 8051 FLASH MCU": {
+    name: "General 8051 FLASH MCU",
+    desc: "Enhanced 8051 core at 16MHz, 16K×8 in-system programmable FLASH, multi-channel complementary PWM plus full UART/IIC/SPI interfaces — a classic controller for industrial and appliance applications.",
+    specLabels: ["Core / Frequency", "FLASH / RAM", "Interfaces", "Packages"],
+    tags: ["Complementary PWM", "In-System Programming", "Industrial / Appliances"],
+  },
+  "RISC FLASH 通用 MCU": {
+    name: "RISC FLASH General-Purpose MCU",
+    desc: "Proprietary RISC core at 16MHz with 16-channel 12-bit ADC and built-in EEPROM. Re-programmable FLASH — ideal for general control requiring frequent sampling and parameter storage.",
+    specLabels: ["Core / Frequency", "FLASH", "ADC", "Packages"],
+    tags: ["Built-in EEPROM", "High-Channel ADC"],
+  },
+  "高通道 ADC OTP MCU": {
+    name: "High-Channel ADC OTP MCU",
+    desc: "Cost-effective OTP MCU with 16-channel 12-bit ADC and standby current below 1μA — a low-cost controller for sensor interfaces and battery-powered appliances.",
+    specLabels: ["Core / Frequency", "OTP", "ADC", "Packages"],
+    tags: ["Standby <1μA", "Low-Cost OTP", "Sensor Interface"],
+  },
+  "触摸按键专用 MCU": {
+    name: "Touch-Key Dedicated MCU",
+    desc: "26 high-sensitivity touch channels, water/oil-proof and noise-immune, backed by a mature touch algorithm library — widely used in induction cookers, range hoods and smart switches.",
+    specLabels: ["Core", "FLASH", "Touch Channels", "Packages"],
+    tags: ["26 Touch Channels", "Water/Oil Proof", "Cookers / Switches"],
+  },
+  "车规 1T 8051 MCU": {
+    name: "Automotive 1T 8051 MCU",
+    desc: "High-speed, low-power 1T 8051 automotive MCU with 12-bit ADC and 16-bit complementary PWM — for body control, lighting, wipers and cooling fans.",
+    specLabels: ["Core", "ADC", "PWM", "Qualification"],
+    tags: ["Automotive", "Body Control", "Lighting / Wipers"],
+  },
+  "通用 GPIO OTP MCU": {
+    name: "General GPIO OTP MCU",
+    desc: "General IO OTP MCU with minimal external circuitry, tiny SOT23-6 package and standby current below 1μA — the most cost-effective high-volume choice for small appliances and remotes.",
+    specLabels: ["Core / Frequency", "OTP", "Standby Current", "Packages"],
+    tags: ["Tiny Package", "Best Volume Cost", "Appliances / Remotes"],
+  },
+  "漏电保护开关主控芯片": {
+    name: "RCD Switch Controller IC",
+    desc: "High-performance AC-type residual-current protection IC integrating regulated supply, amplifier, comparator, trip controller and trip driver. Only a zero-sequence CT and a few R/C components are required externally. When the leakage signal peak across OP1/OP2 exceeds 4.9mV, the OS pin outputs a ≥20ms high pulse that directly triggers the external SCR.",
+    specLabels: ["Trip Sensitivity", "Quiescent Current", "Supply Voltage", "AC Input", "Temperature", "Package"],
+    tags: ["RCBO", "Earth-Leakage Relay", "RoHS & HF", "MSL-3"],
+    highlights: [
+      "Designed for AC-type residual-current detection",
+      "High input sensitivity (4.9mV typical)",
+      "Low 190μA quiescent current",
+      "Direct SCR drive, output pulse >20ms",
+      "Excellent trip-threshold consistency",
+      "Strong EMC immunity",
+    ],
+    tables: [
+      {
+        title: "Key Electrical Characteristics (VDD=4.5V, TA=25℃)",
+        columns: ["Parameter", "Min", "Typ", "Max", "Unit"],
+        rowsEn: [
+          ["Quiescent current IQ", "100", "190", "280", "μA"],
+          ["Supply voltage VDD", "4.6", "4.8", "5.0", "V"],
+          ["Positive trip voltage V_PT", "4.4", "4.9", "5.5", "mV"],
+          ["Negative trip voltage V_NT", "4.4", "4.9", "5.5", "mV"],
+          ["Latch time TON", "20", "—", "—", "ms"],
+          ["OS output high current I_OSH", "0.18", "0.23", "0.28", "mA"],
+        ],
+      },
+      {
+        title: "Pin Description (SOP8L)",
+        columns: ["No.", "Name", "Function"],
+        rowsEn: [
+          ["1", "OP1", "Signal amplifier input 1"],
+          ["2", "OP2", "Signal amplifier input 2"],
+          ["3", "GND", "Ground"],
+          ["4", "NC", "No connection"],
+          ["5", "OUT", "Amplifier output, external filter cap"],
+          ["6", "CAP", "Delay setting, external cap"],
+          ["7", "OS", "Output, drives SCR"],
+          ["8", "VDD", "Supply"],
+        ],
+      },
+    ],
+  },
+  "漏电保护芯片系列选型": {
+    name: "RCD IC Family Selection",
+    desc: "A complete family covering AC-type and A-type residual-current detection with excellent trip-voltage consistency, VDD clamping and EMC protection — for RCBOs and leakage relays of various structures.",
+    specLabels: ["Detection Type", "Supply Voltage", "Quiescent Current", "Temperature"],
+    tags: ["VDD Clamp", "EMC Protection", "Multiple Packages"],
+    tables: [{
+      title: "RCD IC Family Selection Table",
+      columns: ["Part No.", "Type", "Supply (V)", "IQ (μA)", "Trip Voltage", "Package"],
+      rowsEn: [
+        ["HS54123A/B/C/D", "AC type", "3 ~ 5.5", "190", "VPT=VNT=4.95mV", "SOP8"],
+        ["HS54124A/B/C/D", "A / AC type", "3 ~ 5.5", "190", "VPT=VNT=4.95mV", "SOP8 / SOP14"],
+        ["HS54125A/B/C/D", "AC type", "2.7 ~ 5.5", "150", "VPT=VNT=5mV", "SOP8"],
+        ["HS54126A/B/C/D", "A / AC type", "2.7 ~ 5.5", "150", "VPT=VNT=5mV", "SOP8 / SOP14"],
+        ["HS54127A/B/C/D", "AC type", "2.7 ~ 5.5", "150", "VPT=VNT=5mV", "SOT23-5"],
+      ],
+    }],
+  },
+  "SSR 隔离反激式 AC-DC 电源芯片": {
+    name: "SSR Isolated Flyback AC-DC Controller",
+    desc: "Secondary-side-regulated isolated flyback controller with 900V integrated power switch, standby power as low as 50mW and comprehensive protections — for smart meters, appliance auxiliary supplies and industrial control power.",
+    specLabels: ["Switch Voltage", "Output Power", "Switching Frequency", "Standby Power", "Temperature", "Package"],
+    tags: ["Overload Protection", "Over-Temp Protection", "Output Short Protection", "VDD OVP/UVP"],
+    tables: [{
+      title: "AC-DC Controller Selection (Partial)",
+      columns: ["Part No.", "Topology", "Voltage (V)", "Max Output (W)", "Package"],
+      rowsEn: [
+        ["CN1609", "PSR", "850", "3 ~ 5", "SOP-7"],
+        ["CN1611", "PSR", "1000", "15", "DIP-7"],
+        ["CN1812", "PSR", "650", "12", "SOP-7"],
+        ["CN1810", "PSR (ext. MOS)", "—", "30", "SOT23-6"],
+        ["CN11015A", "SSR", "900", "18 (open frame)", "DIP-7"],
+        ["CN1102AC", "SSR", "1000", "13 (open frame)", "DIP-7"],
+        ["CN1103AC", "SSR", "1200", "13 (open frame)", "DIP-7"],
+        ["CN1104BA", "SSR", "1500", "12 (open frame)", "DIP-7"],
+        ["CN1001A", "SSR (ext. MOS)", "—", "45", "SOP-8"],
+        ["CN1303A", "Non-isolated", "1200", "7", "DIP-7"],
+      ],
+    }],
+  },
+  "同步降压 DC-DC 转换器": {
+    name: "Synchronous Buck DC-DC Converter",
+    desc: "5.5~38V wide-input synchronous buck converter with 1A output, 600kHz switching, input UV/OV, output short, over-temperature and hiccup-mode protection — for industrial bus power and wide-input scenarios.",
+    specLabels: ["Input Voltage", "Output Current", "Switching Frequency", "Standby Current", "Temperature", "Package"],
+    tags: ["Input UV/OV Protection", "Hiccup Mode", "FB Short-to-GND Protection"],
+    tables: [{
+      title: "DC-DC Converter Selection (Partial)",
+      columns: ["Part No.", "Topology", "Input (V)", "Output Capability", "Package"],
+      rowsEn: [
+        ["CN2501", "Sync buck", "2.6 ~ 6", "1.4A", "SOT23-5"],
+        ["CN2202", "Sync buck", "4.5 ~ 18", "2A", "SOT23-6"],
+        ["CN2203", "Sync buck", "3.8 ~ 24", "0.85A", "SOT23-6"],
+        ["CN2204", "Sync buck", "5.5 ~ 38", "1A", "SOT23-6"],
+        ["CN2213", "Sync buck", "5.5 ~ 24", "Fixed 5V output", "SOT23-6"],
+        ["CN2901", "Boost", "2.4 ~ 6", "12V / 3.5A", "SOT23-6"],
+        ["CN2902", "Sync boost", "2.4 ~ 6", "24V / 3.5A", "ESOP-8"],
+        ["CN35K180", "Isolated (primary H-bridge)", "4 ~ 24", "3W", "SOT23-6"],
+        ["CN3501BTER", "Isolated (push-pull)", "2.8 ~ 6", "2W", "SOT23-6"],
+      ],
+    }],
+  },
+  "低压差 LDO 稳压器系列": {
+    name: "Low-Dropout LDO Regulator Family",
+    desc: "LDO family covering 0.15A~1A output current, low quiescent current and ±2% output accuracy, with multiple fixed voltages and packages — clean power rails for MCUs, sensors and communication modules.",
+    specLabels: ["Input Voltage", "Output Current", "Quiescent Current", "Output Accuracy", "Temperature", "Packages"],
+    tags: ["Output Short Protection", "Over-Temp Protection", "Multiple Voltage Options"],
+    tables: [{
+      title: "LDO / Regulator Selection (Partial)",
+      columns: ["Part No.", "Input (V)", "Output Current (A)", "IQ (μA)", "Fixed Outputs (V)"],
+      rowsEn: [
+        ["CN84MXXX", "VOUT+1 ~ 12", "0.5", "≤2.5", "1.8 / 2.8 / 3.0 / 3.3 / 3.6 / 4.0 / 5.0"],
+        ["CN84AXXX", "VOUT+1 ~ 12", "1", "≤2.5", "1.8 / 2.8 / 3.0 / 3.3 / 3.6 / 4.0 / 5.0"],
+        ["CN85LXXX", "VOUT+1 ~ 20", "0.3", "≤2.5", "1.8 / 2.8 / 3.0 / 3.3 / 3.6 / 4.0 / 5.0"],
+        ["CN86LXXX", "VOUT+1 ~ 36", "0.3", "≤1.2", "2.8 / 3.0 / 3.3 / 3.6 / 4.0 / 5.0 / 5.6 / 12"],
+        ["CN87MXXX", "VOUT+1 ~ 6", "0.5", "≤0.6", "1.2 / 1.8 / 2.5 / 2.8 / 3.0 / 3.3 / 3.6 / 4.0 / 5.0"],
+        ["CN88LXXX", "VOUT+1 ~ 35", "0.15", "≤6", "2.5 / 3.3 / 4.0 / 5.0 / 5.6"],
+        ["CN78L05", "8 ~ 36", "0.1", "3000", "5 (3-terminal)"],
+      ],
+    }],
+  },
+  "HPLC + HRF 双模电力载波通信芯片": {
+    name: "HPLC + HRF Dual-Mode Power-Line Communication SoC",
+    desc: "Dual-mode communication SoC for smart meters and power-consumption information collection systems. HPLC broadband carrier and HRF micro-power wireless back each other up, with 15-level routing relay and 1024 slave nodes per network, meeting State Grid interconnection standards.",
+    specLabels: ["HPLC Band", "HRF Band", "Routing Relay", "Slave Nodes", "Static Power", "Packages"],
+    tags: ["State Grid Interop", "Dual-Mode Backup", "Smart Meter", "Concentrator/Collector"],
+    tables: [{
+      title: "Power-Line Carrier Communication IC Selection",
+      columns: ["Part No.", "Comm. Type", "Modulation", "Slave Nodes", "Standards", "Package"],
+      rowsEn: [
+        ["CN8513", "Dual-mode", "HPLC + HRF", "1024", "State Grid interop", "QFN68"],
+        ["CN8514", "Dual-mode", "HPLC + HRF", "1024", "State Grid interop", "QFN88"],
+        ["CN8513B", "Single-mode", "HPLC", "1024", "State/China Southern Grid interop", "QFN68"],
+        ["CN8514B", "Single-mode", "HPLC", "1024", "State/China Southern Grid interop", "QFN88"],
+      ],
+    }],
+  },
+  "HPLC 专用电源管理芯片（PMU）": {
+    name: "Dedicated HPLC Power Management IC (PMU)",
+    desc: "All-in-one PMU tailored for carrier communication modules: synchronous buck 800mA@3.3V for the main chip, boost 0.45A@12V for the line driver, plus integrated 2.55V supercapacitor charge management to guarantee data reporting at power loss.",
+    specLabels: ["Input Voltage", "Buck Output", "Boost Output", "Supercap Charging", "Standby Current", "Packages"],
+    tags: ["Input UV/OV Protection", "Hiccup Mode", "Over-Temp Protection"],
+    tables: [{
+      title: "Dedicated HPLC PMU Selection",
+      columns: ["Part No.", "Input (V)", "Buck Output", "Boost Output", "Package"],
+    }],
+  },
+  "电力线驱动与接口配套芯片": {
+    name: "Power-Line Driver & Interface Companion ICs",
+    desc: "Wide-bandwidth line driver with integrated PMU, efficiently injecting carrier signals into power lines; together with the CN71102 zero-crossing detector and State-Grid-certified RS485 transceiver, forming a complete communication interface solution for power IoT terminals.",
+    specLabels: ["Large-Signal Bandwidth", "Output Current", "Output Swing", "ESD Protection", "Temperature", "Package"],
+    tags: ["Line Driver", "Zero-Cross Detection", "State-Grid-Certified RS485"],
+    tables: [{
+      title: "Communication Interface Companion IC Selection",
+      columns: ["Part No.", "Category", "Key Parameters", "Package"],
+      rowsEn: [
+        ["CN6212", "Line driver", "BW >20MHz, 6~28V supply, HBM 4kV", "QFN5×4-24L / QFN4×4-16L"],
+        ["CN6222", "Line driver", "BW >50MHz, 6~40V supply", "QFN5×4-24L"],
+        ["CN6218", "PMU + line driver", "BW >50MHz, PMU 5~38V input", "QFN5×4-24L"],
+        ["CN71102", "Zero-cross detector", "IQ ≤1μA, 3~5.5V", "SOT23-3"],
+        ["RS485", "485 transceiver", "500Kbps, A/B ±15kV ESD, State-Grid certified", "SOP8"],
+      ],
+    }],
+  },
+  "电力载波通信单元（单相/三相模块）": {
+    name: "Power-Line Carrier Communication Unit (Single/Three-Phase)",
+    desc: "The communication channel between energy meters and concentrators, built on CN8513/CN8514. OFDM modulation overcomes low-voltage line interference for high-speed, reliable data transfer; HPLC broadband carrier and HRF wireless automatically blend into one network.",
+    specLabels: ["Comm. Mode", "Core Chips", "Working Mode", "Form Factors"],
+    tags: ["Meter Data Collection", "OFDM Anti-Interference", "Auto Hybrid Networking"],
+    highlights: [
+      "Dual-mode: broadband power-line carrier (HPLC) + micro-power wireless (HRF)",
+      "High data rate, strong immunity to power-line interference",
+      "Automatic dual-channel hybrid networking for flexibility",
+      "Fits Type I / II collectors and single/three-phase meters",
+    ],
+  },
+  "通用双模模组（透传）": {
+    name: "Universal Dual-Mode Module (Transparent Transmission)",
+    desc: "Compact dual-mode communication module, customizable to customer requirements — quickly adds power-IoT connectivity to any terminal, supporting State Grid and China Southern Grid interconnection protocols.",
+    specLabels: ["Dimensions", "Comm. Type", "Range", "Protocols"],
+    tags: ["Transparent Mode", "Power-Outage Reporting", "Transformer-Area ID"],
+    highlights: [
+      "Transparent-transmission mode, easy integration",
+      "Power-outage reporting",
+      "Transformer-area and phase identification",
+      "Applications: smart terminals, chargers, smart home, PV, lighting, transport",
+    ],
+  },
+  "集中器Ⅰ型（2022 版）": {
+    name: "Concentrator Type I (2022 Edition)",
+    desc: "A new-generation smart IoT edge device for power-consumption data collection, built on a high-performance core board with Linux. Decoupled software/hardware and modular structure, compliant with State Grid's General Technical Specification for Concentrator Type I (2022).",
+    specLabels: ["OS", "Architecture", "Edge Computing", "Downlink Interfaces"],
+    tags: ["High Concurrency", "Large Storage", "Remote Upgrade"],
+    highlights: [
+      "Data collection: consumption, status, pulses, AC analog quantities",
+      "Real-time/daily/monthly statistics, power-quality analysis",
+      "Event logging: parameter changes, terminal power loss/restore",
+      "Self-check & recovery, initialization, remote software upgrade",
+      "Orderly EV charging, fault analysis, 3-phase imbalance, PV/storage monitoring",
+    ],
+  },
+  "台区智能融合终端": {
+    name: "Transformer-Area Smart Fusion Terminal",
+    desc: "The 'brain' of the distribution transformer area: platformized hardware with edge-computing architecture for local data storage and decision analysis. Combined with next-gen distribution automation and consumption collection, it builds the smart low-voltage distribution IoT.",
+    specLabels: ["Hardware Architecture", "Computing Architecture", "Design Standard", "Functionality"],
+    tags: ["Transformer Area", "Local Decisions", "Container Management"],
+    highlights: [
+      "AC analog acquisition, energy metering, status acquisition",
+      "General/extreme-value/voltage monitoring statistics",
+      "Event logging: parameter changes, power loss/restore",
+      "Device monitoring, container & APP management, remote upgrade",
+    ],
+  },
+  "光伏通信协议转换器（基本型）": {
+    name: "PV Communication Protocol Converter (Basic)",
+    desc: "A data acquisition and flexible-regulation gateway installed at distributed PV inverters. Automatically reads voltage, current and power data, supports mainstream inverter protocols, with code-free configuration via mobile APP.",
+    specLabels: ["Voltage Accuracy", "Uplink Protocol", "Downlink Protocol", "Sampling Cycle"],
+    tags: ["Flexible Regulation", "Event Reporting", "Bluetooth Maintenance"],
+    highlights: [
+      "Reads inverter voltage/current/power, monitors operating status",
+      "Flexible regulation: power output, power factor, on/off control",
+      "Event logging & reporting (over-voltage, outages, etc.)",
+      "Interfaces: 2×uplink RS485, 2×RJ45, dual-mode carrier, Bluetooth",
+    ],
+  },
+  "光伏通信协议转换器（增强型）": {
+    name: "PV Communication Protocol Converter (Enhanced)",
+    desc: "Builds on the Basic model with higher metering accuracy plus power-quality and anti-islanding monitoring. Local/remote control outputs meet refined distributed-PV management and grid-connection safety requirements.",
+    specLabels: ["Voltage Accuracy", "Uplink Protocol", "Control Output", "Sampling Cycle"],
+    tags: ["Islanding Detection", "Power Quality", "Local/Remote Control"],
+    highlights: [
+      "Class 0.5 voltage & class 1 harmonic measurement for power quality",
+      "Islanding detection: voltage/frequency/phase-angle anomalies",
+      "Local and remote control (trip/close level outputs)",
+      "Interfaces: 2×uplink RS485, 4×RJ45, dual-mode carrier, 12V out, Bluetooth",
+    ],
+  },
+  "光伏通信协议转换器": {
+    name: "PV Communication Protocol Converter",
+    desc: "General-purpose protocol converter for PV renewable-energy grid connection: PV generation/consumption data acquisition, monitoring and transparent transmission. Uplink DL/T645-2007 to consumption-collection systems; downlink MODBUS compatible with mainstream inverters.",
+    specLabels: ["Uplink Protocol", "Downlink Protocol", "Comm. Modes", "Configuration"],
+    tags: ["Distributed PV", "Transparent Transmission", "Plug & Play"],
+    highlights: [
+      "Collects PV inverter generation & consumption data",
+      "Transparent-transmission acquisition mode",
+      "Metering anomaly monitoring with proactive reporting",
+      "Supports mainstream PV inverter protocols",
+    ],
+  },
+  "低压分支监测终端（LTU）": {
+    name: "Low-Voltage Branch Monitoring Unit (LTU)",
+    desc: "Deployed at distribution and branch boxes in low-voltage areas. Uplink to fusion terminals; downlink to sensing units for data acquisition — supporting topology identification, line-loss analysis, 3-phase imbalance, power-quality analysis and fault location.",
+    specLabels: ["Freeze Modes", "Comm. Modes", "Protocol", "Deployment"],
+    tags: ["Line-Loss Analysis", "Fault Location", "3-Phase Imbalance"],
+    highlights: [
+      "AC analog acquisition, energy metering, status acquisition",
+      "Assists big-data topology and power-quality analysis",
+      "Line-loss rate from branch vs meter-box energy",
+      "Multiple comm. modes for flexible retrofit",
+    ],
+  },
+  "定位授时终端": {
+    name: "Positioning & Timing Terminal",
+    desc: "High-precision timing terminal with integrated BDS-3 module, supporting BDS3/GPS/GLONASS/Galileo multi-system joint positioning — reliable time sync and location services for finance, telecom, power and transport.",
+    specLabels: ["Satellite Systems", "Timing Accuracy", "Positioning Accuracy", "Power"],
+    tags: ["RS485 + Bluetooth 5.0", "IP65", "Low Power"],
+    highlights: [
+      "Multi-system joint positioning & timing for reliability",
+      "1PPS pulse output for time-sync networking",
+      "RS485 + Bluetooth 5.0 for easy field configuration",
+      "Applications: finance, telecom, power, transport",
+    ],
+  },
+  "配电杆塔故障定位终端": {
+    name: "Distribution Tower Fault-Location Terminal",
+    desc: "RTK high-precision positioning and tilt-monitoring terminal for distribution poles and signal towers. Solar-powered, maintenance-free; reports position, tilt and fault data in real time for precise grid O&M.",
+    specLabels: ["RTK Accuracy", "Tilt Monitoring", "Communication", "Power Supply"],
+    tags: ["IP67", "No Wiring", "Remote OTA"],
+    highlights: [
+      "RTK centimeter-level positioning of faulty towers",
+      "Real-time tilt & displacement monitoring with alarms",
+      "Solar + wide-temperature battery for years outdoors",
+      "4G Cat.1 direct uplink, remote OTA upgrades",
+    ],
+  },
+  "塔杆倾斜检测终端": {
+    name: "Tower Tilt Detection Terminal",
+    desc: "High-precision tilt terminal for structural health monitoring of HV towers and building structures. Long-cycle-life LTO battery with solar power enables 24/7 unattended monitoring.",
+    specLabels: ["Monitoring Range", "Accuracy", "Communication", "Power Supply"],
+    tags: ["IP65", "Structural Health Monitoring", "Long-Life Battery"],
+    highlights: [
+      "±0.05° precision detects minute deformation",
+      "4G Cat.1 / RS485 / Bluetooth uplinks",
+      "LTO battery: wide temperature, long cycle life",
+      "Applications: HV towers, buildings, construction machinery",
+    ],
+  },
+  "工业压力变送器芯体": {
+    name: "Industrial Pressure Transmitter Element",
+    desc: "Diffused-silicon piezoresistive pressure-sensing element designed for industrial process control and hydraulic systems, with excellent long-term stability.",
+    specLabels: ["Range", "Accuracy", "Output", "Temperature"],
+    tags: ["AEC-Q100", "Intrinsically Safe", "OEM Custom"],
+  },
+  "数字温湿度传感器": {
+    name: "Digital Temperature & Humidity Sensor",
+    desc: "Single-chip temperature & humidity sensor with CMOSens® technology, factory-calibrated over the full range, plug-and-play I²C interface.",
+    specLabels: ["Humidity Accuracy", "Temperature Accuracy", "Interface", "Package"],
+    tags: ["Low Power", "Calibration-Free", "Tape & Reel"],
+  },
+  "霍尔电流传感器": {
+    name: "Hall-Effect Current Sensor",
+    desc: "Open-loop Hall principle with feed-through copper bar design — for current measurement in VFDs, PV inverters and EV chargers.",
+    specLabels: ["Range", "Accuracy", "Bandwidth", "Supply"],
+    tags: ["Isolated Measurement", "Cost-Effective"],
+  },
+};
+
 const categories = [
-  { key: "all", label: "全部标准产品" },
-  { key: "mcu", label: "MCU 主控" },
-  { key: "rcd", label: "漏电保护芯片" },
-  { key: "power", label: "电源管理芯片" },
-  { key: "iot", label: "电力物联模组" },
+  { key: "all", label: { zh: "全部标准产品", en: "All Standard Products" } },
+  { key: "mcu", label: { zh: "MCU 主控", en: "MCU Controllers" } },
+  { key: "rcd", label: { zh: "漏电保护芯片", en: "RCD ICs" } },
+  { key: "power", label: { zh: "电源管理芯片", en: "Power Management" } },
+  { key: "iot", label: { zh: "电力物联模组", en: "Power IoT Modules" } },
 ];
 
 export default function Products() {
@@ -837,10 +1273,38 @@ export default function Products() {
   const [contact, setContact] = useState("");
   const [message, setMessage] = useState("");
   const { member } = useAuth();
+  const { t, lang } = useLang();
+  const en = lang === "en";
+
+  /** 按当前语言本地化产品数据（英文内容缺失时回退中文） */
+  const loc = (p: Product) => {
+    const e = en ? PRODUCTS_EN[p.name] : undefined;
+    return {
+      name: e?.name ?? p.name,
+      desc: e?.desc ?? p.desc,
+      specs: p.specs.map((s, i) => ({
+        label: e?.specLabels?.[i] ?? s.label,
+        value: s.value,
+      })),
+      tags: e?.tags ?? p.tags,
+      highlights: e?.highlights ?? p.highlights,
+      tables: p.tables?.map((tb, i) => ({
+        title: e?.tables?.[i]?.title ?? tb.title,
+        columns: e?.tables?.[i]?.columns ?? tb.columns,
+        rows: e?.tables?.[i]?.rowsEn ?? tb.rows,
+      })),
+      status:
+        p.status === "量产"
+          ? t("量产", "In Production")
+          : p.status === "样品"
+            ? t("样品", "Sampling")
+            : t("预告", "Preview"),
+    };
+  };
 
   const inquire = trpc.member.inquire.useMutation({
     onSuccess: () => {
-      toast.success("已收到你的需求，销售工程师将尽快联系你");
+      toast.success(t("已收到你的需求，销售工程师将尽快联系你", "Request received — our sales engineer will contact you soon"));
       setInquiryProduct(null);
       setContact("");
       setMessage("");
@@ -857,10 +1321,12 @@ export default function Products() {
     <div className="mx-auto max-w-7xl px-4 sm:px-6 py-12">
       {/* 页头 */}
       <div className="mb-10">
-        <h1 className="text-3xl sm:text-4xl font-bold mb-3">产品中心</h1>
+        <h1 className="text-3xl sm:text-4xl font-bold mb-3">{t("产品中心", "Product Center")}</h1>
         <p className="text-slate-400 max-w-2xl">
-          标准传感器、MCU 主控与芯片产品线，覆盖漏电保护、电源管理与电力物联等应用场景，提供完整数据手册、参考设计与样品支持。点击「索取资料
-          / 询价」获取报价与技术文档。
+          {t(
+            "标准传感器、MCU 主控与芯片产品线，覆盖漏电保护、电源管理与电力物联等应用场景，提供完整数据手册、参考设计与样品支持。点击「索取资料 / 询价」获取报价与技术文档。",
+            "Standard sensors, MCU controllers and IC product lines covering RCD, power management and power IoT applications — complete datasheets, reference designs and sample support. Click “Request Info / Quote” for pricing and documentation.",
+          )}
         </p>
       </div>
 
@@ -873,7 +1339,7 @@ export default function Products() {
               value={c.key}
               className="data-[state=active]:bg-cyan-600 data-[state=active]:text-white"
             >
-              {c.label}
+              {t(c.label.zh, c.label.en)}
             </TabsTrigger>
           ))}
         </TabsList>
@@ -881,18 +1347,20 @@ export default function Products() {
 
       {/* 产品网格 */}
       <div className="grid gap-6 md:grid-cols-2">
-        {filtered.map((p) => (
+        {filtered.map((p) => {
+          const l = loc(p);
+          return (
           <Card
             key={p.name}
             className={`bg-slate-900/60 border-slate-800 overflow-hidden hover:border-cyan-500/40 transition-colors ${
-              p.tables ? "md:col-span-2" : ""
+              l.tables ? "md:col-span-2" : ""
             }`}
           >
             <div className="flex flex-col sm:flex-row">
               <div className="sm:w-44 h-44 sm:h-auto shrink-0 bg-slate-800">
                 <img
                   src={p.image}
-                  alt={p.name}
+                  alt={l.name}
                   className="h-full w-full object-cover"
                 />
               </div>
@@ -911,26 +1379,26 @@ export default function Products() {
                           : "border-slate-500/40 text-slate-400"
                     }
                   >
-                    {p.status}
+                    {l.status}
                   </Badge>
                 </div>
-                <h3 className="font-bold text-lg mb-2">{p.name}</h3>
+                <h3 className="font-bold text-lg mb-2">{l.name}</h3>
                 <p className="text-sm text-slate-400 mb-3 leading-relaxed">
-                  {p.desc}
+                  {l.desc}
                 </p>
                 <div className="grid grid-cols-2 gap-x-4 gap-y-1 mb-3">
-                  {p.specs.map((s) => (
+                  {l.specs.map((s) => (
                     <div key={s.label} className="text-xs">
-                      <span className="text-slate-500">{s.label}：</span>
+                      <span className="text-slate-500">{s.label}: </span>
                       <span className="text-slate-300">{s.value}</span>
                     </div>
                   ))}
                 </div>
-                {p.highlights && (
+                {l.highlights && (
                   <div className="mb-3 rounded-lg border border-slate-800 bg-slate-950/60 p-3">
-                    <div className="text-xs text-slate-500 mb-2">产品特性</div>
+                    <div className="text-xs text-slate-500 mb-2">{t("产品特性", "Highlights")}</div>
                     <ul className="grid sm:grid-cols-2 gap-x-4 gap-y-1">
-                      {p.highlights.map((h) => (
+                      {l.highlights.map((h) => (
                         <li
                           key={h}
                           className="text-xs text-slate-300 flex items-start gap-1.5"
@@ -943,12 +1411,12 @@ export default function Products() {
                   </div>
                 )}
                 <div className="flex flex-wrap gap-1.5 mb-4">
-                  {p.tags.map((t) => (
+                  {l.tags.map((tag) => (
                     <span
-                      key={t}
+                      key={tag}
                       className="rounded bg-slate-800 px-2 py-0.5 text-[11px] text-slate-300"
                     >
-                      {t}
+                      {tag}
                     </span>
                   ))}
                 </div>
@@ -961,36 +1429,36 @@ export default function Products() {
                       setContact(member ? `${member.name} ${member.phone}` : "");
                     }}
                   >
-                    <Send className="mr-1.5 h-3.5 w-3.5" /> 索取资料 / 询价
+                    <Send className="mr-1.5 h-3.5 w-3.5" /> {t("索取资料 / 询价", "Request Info / Quote")}
                   </Button>
                   <Button
                     size="sm"
                     variant="outline"
                     className="border-slate-700 bg-transparent text-slate-300 hover:bg-slate-800"
                     onClick={() =>
-                      toast.info("数据手册将在询价确认后发送至你的邮箱")
+                      toast.info(t("数据手册将在询价确认后发送至你的邮箱", "The datasheet will be emailed after quote confirmation"))
                     }
                   >
-                    <Download className="mr-1.5 h-3.5 w-3.5" /> 数据手册
+                    <Download className="mr-1.5 h-3.5 w-3.5" /> {t("数据手册", "Datasheet")}
                   </Button>
                 </div>
               </CardContent>
             </div>
-            {p.tables && (
+            {l.tables && (
               <div className="border-t border-slate-800 px-5 py-4 grid gap-4 lg:grid-cols-2">
-                {p.tables.map((t) => (
+                {l.tables.map((tb) => (
                   <div
-                    key={t.title}
-                    className={p.tables!.length === 1 ? "lg:col-span-2" : ""}
+                    key={tb.title}
+                    className={l.tables!.length === 1 ? "lg:col-span-2" : ""}
                   >
                     <div className="text-xs font-semibold text-slate-300 mb-2">
-                      {t.title}
+                      {tb.title}
                     </div>
                     <div className="overflow-x-auto rounded-lg border border-slate-800">
                       <table className="w-full text-xs">
                         <thead>
                           <tr className="bg-slate-800/60 text-slate-400">
-                            {t.columns.map((c) => (
+                            {tb.columns.map((c) => (
                               <th
                                 key={c}
                                 className="px-3 py-2 text-left font-medium whitespace-nowrap"
@@ -1001,7 +1469,7 @@ export default function Products() {
                           </tr>
                         </thead>
                         <tbody>
-                          {t.rows.map((r, i) => (
+                          {tb.rows.map((r, i) => (
                             <tr
                               key={i}
                               className="border-t border-slate-800/60 text-slate-300"
@@ -1026,7 +1494,8 @@ export default function Products() {
               </div>
             )}
           </Card>
-        ))}
+          );
+        })}
       </div>
 
       {/* 定制服务 */}
@@ -1035,10 +1504,12 @@ export default function Products() {
           <FileText className="h-7 w-7 text-cyan-400" />
         </div>
         <div className="flex-1">
-          <h3 className="font-bold text-lg mb-1">没有找到合适的型号？</h3>
+          <h3 className="font-bold text-lg mb-1">{t("没有找到合适的型号？", "Can't find the right part?")}</h3>
           <p className="text-sm text-slate-400">
-            我们提供传感器与芯片的定制开发、国产替代选型服务，告诉我们你的应用场景与指标要求，2
-            个工作日内给出方案建议。
+            {t(
+              "我们提供传感器与芯片的定制开发、国产替代选型服务，告诉我们你的应用场景与指标要求，2 个工作日内给出方案建议。",
+              "We offer custom sensor & IC development and domestic-alternative selection. Tell us your application and target specs — a proposal within 2 business days.",
+            )}
           </p>
         </div>
         <Button
@@ -1057,7 +1528,7 @@ export default function Products() {
             setContact(member ? `${member.name} ${member.phone}` : "");
           }}
         >
-          提交定制需求
+          {t("提交定制需求", "Submit Custom Request")}
         </Button>
       </div>
 
@@ -1068,29 +1539,29 @@ export default function Products() {
       >
         <DialogContent className="bg-slate-900 border-slate-700 text-slate-100">
           <DialogHeader>
-            <DialogTitle>索取资料 / 询价</DialogTitle>
+            <DialogTitle>{t("索取资料 / 询价", "Request Info / Quote")}</DialogTitle>
             <DialogDescription className="text-slate-400">
-              {inquiryProduct?.model} {inquiryProduct?.name}
+              {inquiryProduct?.model} {inquiryProduct ? loc(inquiryProduct).name : ""}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 pt-2">
             <div className="space-y-2">
-              <Label htmlFor="contact">联系方式（手机或邮箱）*</Label>
+              <Label htmlFor="contact">{t("联系方式（手机或邮箱）", "Contact (phone or email)")} *</Label>
               <Input
                 id="contact"
                 value={contact}
                 onChange={(e) => setContact(e.target.value)}
-                placeholder="便于工程师联系你"
+                placeholder={t("便于工程师联系你", "So our engineer can reach you")}
                 className="bg-slate-800 border-slate-700"
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="message">需求说明</Label>
+              <Label htmlFor="message">{t("需求说明", "Requirements")}</Label>
               <Textarea
                 id="message"
                 value={message}
                 onChange={(e) => setMessage(e.target.value)}
-                placeholder="应用场景、目标参数、预计用量…"
+                placeholder={t("应用场景、目标参数、预计用量…", "Application, target specs, estimated volume…")}
                 rows={4}
                 className="bg-slate-800 border-slate-700"
               />
@@ -1107,7 +1578,7 @@ export default function Products() {
                 })
               }
             >
-              {inquire.isPending ? "提交中…" : "提交需求"}
+              {inquire.isPending ? t("提交中…", "Submitting…") : t("提交需求", "Submit Request")}
             </Button>
           </div>
         </DialogContent>

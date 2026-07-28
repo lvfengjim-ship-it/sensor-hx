@@ -52,6 +52,37 @@ const SYSTEM_PROMPT = `你是一名资深嵌入式固件工程师，为 MCU 设�
 
 type ChatMessage = { role: "system" | "user"; content: string };
 
+/** 可重试的瞬时错误（过载/限流/网关抖动） */
+const RETRYABLE = new Set([408, 409, 429, 500, 502, 503, 504]);
+
+async function fetchWithRetry(
+  url: string,
+  init: RequestInit,
+  label: string,
+): Promise<Response> {
+  const delays = [5000, 15000, 45000];
+  let lastErr: Error | null = null;
+  for (let attempt = 0; attempt <= delays.length; attempt++) {
+    try {
+      const res = await fetch(url, {
+        ...init,
+        signal: AbortSignal.timeout(300_000),
+      });
+      if (res.ok || !RETRYABLE.has(res.status)) return res;
+      lastErr = new Error(`${label} 瞬时错误：${res.status}`);
+    } catch (e) {
+      lastErr = e as Error;
+    }
+    if (attempt < delays.length) {
+      await new Promise((r) => setTimeout(r, delays[attempt]));
+    }
+  }
+  throw new TRPCError({
+    code: "INTERNAL_SERVER_ERROR",
+    message: `${label} 服务繁忙，已重试 ${delays.length} 次仍失败，请稍后再试（${lastErr?.message ?? ""}）`,
+  });
+}
+
 export async function chatCompletion(
   messages: ChatMessage[],
   maxTokens = 8192,
@@ -87,6 +118,157 @@ export async function chatCompletion(
     return data.choices?.[0]?.message?.content ?? "";
   }
 
+  if (provider === "kimi") {
+    // Kimi Code 会员 API（OpenAI 兼容，思考模型：用 low 推理档位控制预算）
+    const key = process.env.KIMI_API_KEY;
+    if (!key) {
+      throw new TRPCError({
+        code: "PRECONDITION_FAILED",
+        message: "服务端未配置 KIMI_API_KEY",
+      });
+    }
+    const base = (process.env.KIMI_BASE_URL || "https://api.kimi.com/coding/v1").replace(/\/$/, "");
+
+    const IDLE_MS = 90_000; // 流空闲超时：90 秒无数据判定停滞
+    const MAX_CONT = 3; // 最多断点续写次数
+
+    /**
+     * 读取一次 SSE 流。停滞/截断时返回已累积的部分内容（finished=false），
+     * 由调用方决定是否断点续写；完全无内容才抛可重试故障。
+     */
+    const streamOnce = async (
+      msgs: unknown[],
+    ): Promise<{ text: string; finished: boolean }> => {
+      const ctrl = new AbortController();
+      const overall = setTimeout(() => ctrl.abort(), 300_000); // 单请求整体 5 分钟
+      let idle: ReturnType<typeof setTimeout> | undefined;
+      const resetIdle = () => {
+        if (idle) clearTimeout(idle);
+        idle = setTimeout(() => ctrl.abort(), IDLE_MS);
+      };
+      const res = await fetch(`${base}/chat/completions`, {
+        method: "POST",
+        signal: ctrl.signal,
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${key}`,
+        },
+        body: JSON.stringify({
+          model: process.env.KIMI_MODEL || "kimi-for-coding",
+          messages: msgs,
+          // 流式：长输出时保持字节流动，避免网关非流式等待超时（504）
+          stream: true,
+          max_tokens: maxTokens,
+          reasoning_effort: process.env.KIMI_REASONING_EFFORT || "low",
+        }),
+      }).finally(() => clearTimeout(overall));
+      if (!res.ok) {
+        if (idle) clearTimeout(idle);
+        const text = await res.text().catch(() => "");
+        const err = new Error(`Kimi HTTP ${res.status} ${text.slice(0, 120)}`);
+        (err as Error & { retryable?: boolean }).retryable = RETRYABLE.has(res.status);
+        throw err;
+      }
+      const reader = res.body?.getReader();
+      if (!reader) {
+        if (idle) clearTimeout(idle);
+        throw Object.assign(new Error("Kimi 响应无数据流"), { retryable: true });
+      }
+      const decoder = new TextDecoder();
+      let text = "";
+      let buf = "";
+      let streamErr = "";
+      let finishReason = "";
+      resetIdle();
+      try {
+        for (;;) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          resetIdle();
+          buf += decoder.decode(value, { stream: true });
+          const lines = buf.split("\n");
+          buf = lines.pop() ?? "";
+          for (const line of lines) {
+            const l = line.trim();
+            if (!l.startsWith("data:")) continue;
+            const payload = l.slice(5).trim();
+            if (!payload || payload === "[DONE]") continue;
+            try {
+              const j = JSON.parse(payload) as {
+                choices?: { delta?: { content?: string }; finish_reason?: string }[];
+                error?: { message?: string };
+              };
+              if (j.error?.message) streamErr = j.error.message;
+              text += j.choices?.[0]?.delta?.content ?? "";
+              const fr = j.choices?.[0]?.finish_reason;
+              if (fr) finishReason = fr;
+            } catch {
+              /* 忽略不完整分片 */
+            }
+          }
+        }
+      } catch (e) {
+        // 停滞/超时中断：已有部分内容则交续写，否则视为可重试故障
+        if (text) return { text, finished: false };
+        throw Object.assign(
+          new Error(`Kimi 流停滞或超时：${(e as Error).message}`),
+          { retryable: true },
+        );
+      } finally {
+        if (idle) clearTimeout(idle);
+        reader.cancel().catch(() => {});
+      }
+      if (streamErr && !text) {
+        throw Object.assign(new Error(`Kimi 流错误：${streamErr}`), { retryable: true });
+      }
+      // length = 输出被 max_tokens 截断，需要续写；流错误但有内容也尝试续写
+      const finished = !streamErr && finishReason !== "length";
+      return { text, finished };
+    };
+
+    /** 单次完整尝试：首请求 + 停滞/截断时断点续写；空内容视为可重试故障 */
+    const attempt = async (): Promise<string> => {
+      let msgs = messages as unknown[];
+      let full = "";
+      for (let c = 0; c <= MAX_CONT; c++) {
+        const { text, finished } = await streamOnce(msgs);
+        full += text;
+        if (finished || !text) break;
+        msgs = [
+          ...(messages as unknown[]),
+          { role: "assistant", content: full },
+          {
+            role: "user",
+            content:
+              "请紧接上文的最后一个字符继续输出剩余内容，不要重复已输出部分，不要添加任何解释或道歉。",
+          },
+        ];
+      }
+      if (!full) {
+        throw Object.assign(new Error("Kimi 返回空内容"), { retryable: true });
+      }
+      return full;
+    };
+
+    const delays = [8000, 20000, 45000];
+    let lastErr: Error | null = null;
+    for (let i = 0; i <= delays.length; i++) {
+      try {
+        return await attempt();
+      } catch (e) {
+        lastErr = e as Error;
+        const retryable = (e as Error & { retryable?: boolean }).retryable !== false;
+        if (!retryable || i === delays.length) break;
+        await new Promise((r) => setTimeout(r, delays[i]));
+      }
+    }
+    throw new TRPCError({
+      code: "INTERNAL_SERVER_ERROR",
+      message: `Kimi 服务繁忙或调用失败，请稍后再试（${lastErr?.message ?? "未知错误"}）`,
+    });
+  }
+
+  // 默认 DeepSeek
   const key = process.env.DEEPSEEK_API_KEY;
   if (!key) {
     throw new TRPCError({
@@ -94,19 +276,23 @@ export async function chatCompletion(
       message: "服务端未配置 DEEPSEEK_API_KEY",
     });
   }
-  const res = await fetch("https://api.deepseek.com/chat/completions", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${key}`,
+  const res = await fetchWithRetry(
+    "https://api.deepseek.com/chat/completions",
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${key}`,
+      },
+      body: JSON.stringify({
+        model: process.env.DEEPSEEK_MODEL || "deepseek-chat",
+        messages,
+        stream: false,
+        max_tokens: maxTokens,
+      }),
     },
-    body: JSON.stringify({
-      model: process.env.DEEPSEEK_MODEL || "deepseek-chat",
-      messages,
-      stream: false,
-      max_tokens: maxTokens,
-    }),
-  });
+    "DeepSeek",
+  );
   if (!res.ok) {
     const text = await res.text().catch(() => "");
     throw new TRPCError({
@@ -174,6 +360,11 @@ export type GenOutput = {
 
 const MAX_REPAIR_ROUNDS = 2;
 
+/** 按供应商给出输出预算：Kimi 思考模型的推理消耗同一预算，需预留余量；DeepSeek 上限 8192 */
+function outTokens(): number {
+  return (process.env.AI_PROVIDER || "").toLowerCase() === "kimi" ? 24576 : 8192;
+}
+
 export async function runGeneration(input: GenInput): Promise<GenOutput> {
   const kb = findKnowledge(input.mcu);
   const codePrompt = buildCodePrompt(kb, input.peripherals);
@@ -205,10 +396,13 @@ export async function runGeneration(input: GenInput): Promise<GenOutput> {
     .join("\n\n");
 
   /* ---- Pass 1：完整生成 ---- */
-  const md = await chatCompletion([
-    { role: "system", content: SYSTEM_PROMPT },
-    { role: "user", content: userPrompt },
-  ]);
+  const md = await chatCompletion(
+    [
+      { role: "system", content: SYSTEM_PROMPT },
+      { role: "user", content: userPrompt },
+    ],
+    outTokens(),
+  );
   if (!md) {
     throw new TRPCError({
       code: "INTERNAL_SERVER_ERROR",
@@ -254,7 +448,7 @@ export async function runGeneration(input: GenInput): Promise<GenOutput> {
         { role: "system", content: SYSTEM_PROMPT },
         { role: "user", content: repairPrompt },
       ],
-      8192,
+      outTokens(),
     );
     const fixedCode = extractCode(fixed);
     if (fixedCode.length > 500) code = fixedCode;
@@ -294,7 +488,7 @@ export async function runGeneration(input: GenInput): Promise<GenOutput> {
         { role: "system", content: SYSTEM_PROMPT },
         { role: "user", content: contPrompt },
       ],
-      4096,
+      Math.min(outTokens(), 8192),
     );
     for (const [k, t] of missing) {
       const s = grabSection(cont, t);

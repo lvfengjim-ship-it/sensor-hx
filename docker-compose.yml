@@ -39,7 +39,10 @@ services:
       DATABASE_URL: mysql://sensor:sensor_hx_pass_2026@db:3306/sensor_hx
       PORT: "3000"
       # AI 编程助手（值从服务器上的 .env 读取，见 DEPLOY-ALIYUN.md）
-      AI_PROVIDER: ${AI_PROVIDER:-deepseek}
+      AI_PROVIDER: ${AI_PROVIDER:-kimi}
+      KIMI_API_KEY: ${KIMI_API_KEY:-}
+      KIMI_BASE_URL: ${KIMI_BASE_URL:-https://api.kimi.com/coding/v1}
+      KIMI_MODEL: ${KIMI_MODEL:-kimi-for-coding}
       DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY:-}
       DEEPSEEK_MODEL: ${DEEPSEEK_MODEL:-deepseek-chat}
       OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-https://ai.sensor-hx.com}

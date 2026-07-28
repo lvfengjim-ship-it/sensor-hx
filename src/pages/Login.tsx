@@ -8,17 +8,19 @@ import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { trpc } from "@/providers/trpc";
 import { useAuth } from "@/lib/auth";
+import { useLang } from "@/lib/i18n";
 
 export default function Login() {
   const navigate = useNavigate();
   const { setSession } = useAuth();
+  const { t } = useLang();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
   const login = trpc.member.login.useMutation({
     onSuccess: (r) => {
       setSession(r.token, r.member);
-      toast.success(`欢迎回来，${r.member.name}`);
+      toast.success(t(`欢迎回来，${r.member.name}`, `Welcome back, ${r.member.name}`));
       navigate("/assistant");
     },
     onError: (e) => toast.error(e.message),
@@ -31,21 +33,21 @@ export default function Login() {
           <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-cyan-500/10 border border-cyan-500/20">
             <LogIn className="h-6 w-6 text-cyan-400" />
           </div>
-          <CardTitle className="text-2xl">会员登录</CardTitle>
+          <CardTitle className="text-2xl">{t("会员登录", "Member Login")}</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-2">
-            <Label>邮箱</Label>
+            <Label>{t("邮箱", "Email")}</Label>
             <Input
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="注册时使用的邮箱"
+              placeholder={t("注册时使用的邮箱", "The email you registered with")}
               className="bg-slate-800 border-slate-700"
             />
           </div>
           <div className="space-y-2">
-            <Label>密码</Label>
+            <Label>{t("密码", "Password")}</Label>
             <Input
               type="password"
               value={password}
@@ -64,12 +66,12 @@ export default function Login() {
             disabled={!email || !password || login.isPending}
             onClick={() => login.mutate({ email, password })}
           >
-            {login.isPending ? "登录中…" : "登录"}
+            {login.isPending ? t("登录中…", "Logging in…") : t("登录", "Login")}
           </Button>
           <p className="text-center text-sm text-slate-400">
-            还没有账号？
+            {t("还没有账号？", "No account yet?")}
             <Link to="/register" className="text-cyan-400 hover:underline ml-1">
-              免费注册
+              {t("免费注册", "Sign up free")}
             </Link>
           </p>
         </CardContent>

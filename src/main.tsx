@@ -4,6 +4,7 @@ import { BrowserRouter } from 'react-router'
 import './index.css'
 import { TRPCProvider } from "@/providers/trpc"
 import { AuthProvider } from "@/lib/auth"
+import { LangProvider } from "@/lib/i18n"
 import App from './App.tsx'
 
 createRoot(document.getElementById('root')!).render(
@@ -11,7 +12,9 @@ createRoot(document.getElementById('root')!).render(
     <BrowserRouter basename={import.meta.env.BASE_URL}>
       <TRPCProvider>
         <AuthProvider>
-          <App />
+          <LangProvider>
+            <App />
+          </LangProvider>
         </AuthProvider>
       </TRPCProvider>
     </BrowserRouter>
