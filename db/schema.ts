@@ -75,3 +75,17 @@ export const orders = mysqlTable("orders", {
     .default("pending"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
+
+// AI 编程助手使用日志（后台系统使用情况统计）
+export const aiUsage = mysqlTable("ai_usage", {
+  id: serial("id").primaryKey(),
+  memberId: bigint("member_id", { mode: "number", unsigned: true }).references(
+    () => members.id,
+  ),
+  mcu: varchar("mcu", { length: 64 }).notNull(),
+  provider: varchar("provider", { length: 64 }).notNull().default(""), // 实际引擎
+  durationMs: int("duration_ms").notNull().default(0),
+  ok: int("ok").notNull().default(1), // 1 成功 / 0 失败
+  error: varchar("error", { length: 255 }),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});

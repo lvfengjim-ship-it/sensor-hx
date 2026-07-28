@@ -45,6 +45,8 @@ services:
       KIMI_MODEL: ${KIMI_MODEL:-kimi-for-coding}
       DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY:-}
       DEEPSEEK_MODEL: ${DEEPSEEK_MODEL:-deepseek-chat}
+      # 管理后台密钥（值从服务器上的 .env 读取）
+      ADMIN_KEY: ${ADMIN_KEY:-}
       OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-https://ai.sensor-hx.com}
       OLLAMA_API_KEY: ${OLLAMA_API_KEY:-}
       OLLAMA_MODEL: ${OLLAMA_MODEL:-}

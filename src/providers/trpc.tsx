@@ -15,7 +15,11 @@ const trpcClient = trpc.createClient({
       transformer: superjson,
       headers() {
         const token = localStorage.getItem("hx_token");
-        return token ? { Authorization: `Bearer ${token}` } : {};
+        const adminKey = localStorage.getItem("hx-admin-key");
+        return {
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          ...(adminKey ? { "x-admin-key": adminKey } : {}),
+        };
       },
       fetch(input, init) {
         return globalThis.fetch(input, {

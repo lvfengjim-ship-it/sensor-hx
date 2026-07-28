@@ -5,8 +5,12 @@ import { fetchRequestHandler } from "@trpc/server/adapters/fetch";
 import { appRouter } from "./router";
 import { createContext } from "./context";
 import { env } from "./lib/env";
+import { ensureAdminSchema } from "./admin";
 
 const app = new Hono<{ Bindings: HttpBindings }>();
+
+// 启动时确保后台所需表结构存在（幂等）
+void ensureAdminSchema();
 
 app.use(bodyLimit({ maxSize: 50 * 1024 * 1024 }));
 app.use("/api/trpc/*", async (c) => {

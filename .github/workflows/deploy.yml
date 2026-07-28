@@ -38,12 +38,13 @@ jobs:
             cd ~/sensor-hx
             # 注入/更新 AI 配置（值由 GitHub Actions 替换，日志自动脱敏）
             touch .env
-            grep -v -E "^(AI_PROVIDER|KIMI_API_KEY|KIMI_BASE_URL|KIMI_MODEL)=" .env > .env.tmp || true
+            grep -v -E "^(AI_PROVIDER|KIMI_API_KEY|KIMI_BASE_URL|KIMI_MODEL|ADMIN_KEY)=" .env > .env.tmp || true
             {
               echo "AI_PROVIDER=${{ secrets.AI_PROVIDER }}"
               echo "KIMI_API_KEY=${{ secrets.KIMI_API_KEY }}"
               echo "KIMI_BASE_URL=${{ secrets.KIMI_BASE_URL }}"
               echo "KIMI_MODEL=${{ secrets.KIMI_MODEL }}"
+              echo "ADMIN_KEY=${{ secrets.ADMIN_KEY }}"
             } >> .env.tmp
             mv .env.tmp .env
             docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build

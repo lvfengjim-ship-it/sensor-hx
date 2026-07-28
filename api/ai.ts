@@ -2,7 +2,34 @@ import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { createRouter, publicQuery } from "./middleware";
 import { requireMember } from "./member";
-import { runGeneration } from "./ai-core";
+import { runGeneration, getLastProviderUsed } from "./ai-core";
+import { getDb } from "./queries/connection";
+import { aiUsage } from "../db/schema";
+import { ensureAdminSchema } from "./admin";
+
+/** 记录一次 AI 生成使用（失败静默，不影响主流程） */
+async function logUsage(entry: {
+  memberId?: number;
+  mcu: string;
+  provider: string;
+  durationMs: number;
+  ok: number;
+  error?: string;
+}) {
+  try {
+    await ensureAdminSchema();
+    await getDb().insert(aiUsage).values({
+      memberId: entry.memberId,
+      mcu: entry.mcu.slice(0, 64),
+      provider: entry.provider.slice(0, 64),
+      durationMs: entry.durationMs,
+      ok: entry.ok,
+      error: entry.error?.slice(0, 255),
+    });
+  } catch (e) {
+    console.error("[ai] 使用日志写入失败：", (e as Error).message);
+  }
+}
 
 export const aiRouter = createRouter({
   /** 从 PDF 原理图文件中提取文本（连接关系/网表），供“已有电气原理图”输入使用 */
@@ -75,7 +102,28 @@ export const aiRouter = createRouter({
       }),
     )
     .mutation(async ({ input, ctx }) => {
-      await requireMember(ctx); // 仅会员可用
-      return runGeneration(input);
+      const member = await requireMember(ctx); // 仅会员可用
+      const t0 = Date.now();
+      try {
+        const result = await runGeneration(input);
+        await logUsage({
+          memberId: member.id,
+          mcu: input.mcu,
+          provider: result.providerUsed || getLastProviderUsed(),
+          durationMs: Date.now() - t0,
+          ok: 1,
+        });
+        return result;
+      } catch (e) {
+        await logUsage({
+          memberId: member.id,
+          mcu: input.mcu,
+          provider: getLastProviderUsed(),
+          durationMs: Date.now() - t0,
+          ok: 0,
+          error: (e as Error).message,
+        });
+        throw e;
+      }
     }),
 });
