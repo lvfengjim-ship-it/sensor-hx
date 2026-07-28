@@ -228,6 +228,7 @@ function CodeCheckBadge({ report }: { report: CodeCheckReport }) {
 
 export default function Assistant() {
   const { t, pick, lang } = useLang();
+  const PIN_FALLBACK = lang === "zh" ? PIN_FALLBACK_ZH : PIN_FALLBACK_EN;
   const { member, loading } = useAuth();
   const navigate = useNavigate();
 
