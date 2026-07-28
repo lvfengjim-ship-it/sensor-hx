@@ -1,6 +1,6 @@
 import { Link, NavLink, Outlet, useNavigate } from "react-router";
 import { useState } from "react";
-import { Menu, X, User, LogOut } from "lucide-react";
+import { Menu, X, User, LogOut, Phone } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/lib/auth";
 import { asset } from "@/lib/asset";
@@ -56,6 +56,13 @@ export default function Layout() {
             </nav>
 
             <div className="hidden md:flex items-center gap-3">
+              <a
+                href="tel:4001101289"
+                className="hidden lg:inline-flex items-center gap-1.5 text-sm text-slate-300 hover:text-cyan-300 transition-colors mr-1"
+              >
+                <Phone className="h-4 w-4 text-cyan-400" />
+                <span className="font-medium tracking-wide">400-110-1289</span>
+              </a>
               {member ? (
                 <div className="flex items-center gap-3">
                   <Link
@@ -228,6 +235,15 @@ export default function Layout() {
               </h4>
               <ul className="space-y-2 text-sm text-slate-400">
                 <li>上海恒矽传感器有限公司</li>
+                <li>
+                  <a
+                    href="tel:4001101289"
+                    className="inline-flex items-center gap-1.5 text-cyan-400 hover:text-cyan-300 font-medium"
+                  >
+                    <Phone className="h-3.5 w-3.5" />
+                    服务热线：400-110-1289
+                  </a>
+                </li>
                 <li>网址：www.sensor-hx.com</li>
                 <li>邮箱：sales@sensor-hx.com</li>
               </ul>

@@ -222,6 +222,15 @@ export default function Home() {
           >
             免费注册会员
           </Button>
+          <p className="mt-6 text-sm text-slate-400">
+            业务咨询请致电服务热线：
+            <a
+              href="tel:4001101289"
+              className="text-cyan-400 hover:text-cyan-300 font-medium tracking-wide"
+            >
+              400-110-1289
+            </a>
+          </p>
         </div>
       </section>
     </div>

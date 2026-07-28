@@ -284,6 +284,7 @@ export default function Account() {
           </Card>
           <p className="text-xs text-slate-500 mt-4">
             如需修改注册信息，请联系 <span className="text-cyan-400">sales@sensor-hx.com</span>
+            或致电服务热线 <a href="tel:4001101289" className="text-cyan-400 hover:underline">400-110-1289</a>
             ，或<Link to="/products" className="text-cyan-400 hover:underline">提交需求</Link>。
           </p>
         </TabsContent>
