@@ -178,6 +178,22 @@ const PIN_FALLBACK_ZH: PinInfo[] = [
   { pin: "P20", func: "LED_STATUS", note: "运行指示灯" },
 ];
 
+/** 引擎标识 → 展示名（分级引擎链自动降级时如实展示实际完成生成的引擎） */
+function engineLabel(p: string): string {
+  switch (p) {
+    case "k3":
+      return "Kimi K3";
+    case "kimi-for-coding-highspeed":
+      return "Kimi K2.7 高速版";
+    case "kimi-for-coding":
+      return "Kimi K2.7";
+    case "deepseek":
+      return "DeepSeek";
+    default:
+      return p;
+  }
+}
+
 const PIN_FALLBACK_EN: PinInfo[] = [
   { pin: "P01", func: "RS485_DE", note: "Direction control, default low" },
   { pin: "P02", func: "UART_TX", note: "RS485 data TX" },
@@ -784,11 +800,16 @@ export default function Assistant() {
           {/* 三重仿真验证报告 */}
           <Card className="bg-slate-900/60 border-slate-800">
             <CardHeader className="pb-3">
-              <CardTitle className="text-base flex items-center gap-1.5">
+              <CardTitle className="text-base flex items-center gap-1.5 flex-wrap">
                 <ShieldCheck className="h-4 w-4 text-emerald-400" /> {t("仿真验证报告", "Simulation Report")}
                 <span className="text-xs font-normal text-slate-500">
                   {t("软件 → 硬件 → 物理，逐级验证", "Software → hardware → physical, level by level")}
                 </span>
+                {done && result?.providerUsed && (
+                  <span className="text-xs font-normal px-2 py-0.5 rounded-full border border-cyan-800/60 text-cyan-400">
+                    {t("本次引擎", "Engine")}: {engineLabel(result.providerUsed)}
+                  </span>
+                )}
               </CardTitle>
             </CardHeader>
             <CardContent>

@@ -83,11 +83,57 @@ async function fetchWithRetry(
   });
 }
 
+/** 记录最近一次生成实际使用的引擎（分级引擎链可能自动降级，前端据此如实展示） */
+let lastProviderUsed = "";
+export function getLastProviderUsed(): string {
+  return lastProviderUsed;
+}
+
 export async function chatCompletion(
   messages: ChatMessage[],
   maxTokens = 8192,
 ): Promise<string> {
   const provider = (process.env.AI_PROVIDER || "deepseek").toLowerCase();
+
+  /** DeepSeek 调用（独立函数：AI_PROVIDER=deepseek 时是主引擎，=kimi 时是兜底引擎） */
+  const deepseekCall = async (): Promise<string> => {
+    const key = process.env.DEEPSEEK_API_KEY;
+    if (!key) {
+      throw new TRPCError({
+        code: "PRECONDITION_FAILED",
+        message: "服务端未配置 DEEPSEEK_API_KEY",
+      });
+    }
+    const res = await fetchWithRetry(
+      "https://api.deepseek.com/chat/completions",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${key}`,
+        },
+        body: JSON.stringify({
+          model: process.env.DEEPSEEK_MODEL || "deepseek-chat",
+          messages,
+          stream: false,
+          max_tokens: Math.min(maxTokens, 8192),
+        }),
+      },
+      "DeepSeek",
+    );
+    if (!res.ok) {
+      const text = await res.text().catch(() => "");
+      throw new TRPCError({
+        code: "INTERNAL_SERVER_ERROR",
+        message: `DeepSeek 调用失败：${res.status} ${text.slice(0, 200)}`,
+      });
+    }
+    const data = (await res.json()) as {
+      choices?: { message?: { content?: string } }[];
+    };
+    lastProviderUsed = "deepseek";
+    return data.choices?.[0]?.message?.content ?? "";
+  };
 
   if (provider === "ollama") {
     const base = process.env.OLLAMA_BASE_URL;
@@ -115,6 +161,7 @@ export async function chatCompletion(
     const data = (await res.json()) as {
       choices?: { message?: { content?: string } }[];
     };
+    lastProviderUsed = "ollama";
     return data.choices?.[0]?.message?.content ?? "";
   }
 
@@ -129,16 +176,22 @@ export async function chatCompletion(
     }
     const base = (process.env.KIMI_BASE_URL || "https://api.kimi.com/coding/v1").replace(/\/$/, "");
 
+    // 分级引擎链：首选 K3（最新一代），失败后自动降级 K2.7 高速版，再失败兜底 DeepSeek
+    const MODEL_CHAIN = [
+      ...new Set([process.env.KIMI_MODEL || "k3", "kimi-for-coding-highspeed"]),
+    ];
     const IDLE_MS = 90_000; // 流空闲超时：90 秒无数据判定停滞
     const MAX_CONT = 3; // 最多断点续写次数
-    const CALL_BUDGET_MS = 10 * 60 * 1000; // 单次生成调用总预算：10 分钟
-    const callDeadline = Date.now() + CALL_BUDGET_MS;
+    // Kimi 链整体预算（两个模型共享），超时即转兜底引擎，避免无限拖延
+    const KIMI_BUDGET_MS = Number(process.env.KIMI_BUDGET_MS) || 7 * 60 * 1000;
+    const callDeadline = Date.now() + KIMI_BUDGET_MS;
 
     /**
      * 读取一次 SSE 流。停滞/截断时返回已累积的部分内容（finished=false），
      * 由调用方决定是否断点续写；完全无内容才抛可重试故障。
      */
     const streamOnce = async (
+      model: string,
       msgs: unknown[],
     ): Promise<{ text: string; finished: boolean }> => {
       const remaining = callDeadline - Date.now();
@@ -163,7 +216,7 @@ export async function chatCompletion(
           Authorization: `Bearer ${key}`,
         },
         body: JSON.stringify({
-          model: process.env.KIMI_MODEL || "kimi-for-coding",
+          model,
           messages: msgs,
           // 流式：长输出时保持字节流动，避免网关非流式等待超时（504）
           stream: true,
@@ -236,11 +289,11 @@ export async function chatCompletion(
     };
 
     /** 单次完整尝试：首请求 + 停滞/截断时断点续写；空内容视为可重试故障 */
-    const attempt = async (): Promise<string> => {
+    const attempt = async (model: string): Promise<string> => {
       let msgs = messages as unknown[];
       let full = "";
       for (let c = 0; c <= MAX_CONT; c++) {
-        const { text, finished } = await streamOnce(msgs);
+        const { text, finished } = await streamOnce(model, msgs);
         full += text;
         if (finished || !text) break;
         msgs = [
@@ -254,29 +307,37 @@ export async function chatCompletion(
         ];
       }
       if (!full) {
-        throw Object.assign(new Error("Kimi 返回空内容"), { retryable: true });
+        throw Object.assign(new Error(`Kimi（${model}）返回空内容`), { retryable: true });
       }
       return full;
     };
 
-    const delays = [8000, 20000, 45000];
+    // 沿引擎链逐级尝试：每个模型最多 2 次尝试，共享时间预算
     let lastErr: Error | null = null;
-    for (let i = 0; i <= delays.length; i++) {
-      if (callDeadline - Date.now() < 15_000) {
-        lastErr = new Error("生成总耗时超过上限");
-        break;
+    for (const model of MODEL_CHAIN) {
+      for (let i = 0; i < 2; i++) {
+        if (callDeadline - Date.now() < 15_000) {
+          lastErr = new Error("Kimi 引擎链耗时超过预算");
+          break;
+        }
+        try {
+          const result = await attempt(model);
+          lastProviderUsed = model;
+          return result;
+        } catch (e) {
+          lastErr = e as Error;
+          const retryable = (e as Error & { retryable?: boolean }).retryable !== false;
+          if (!retryable) break; // 该模型不可用（如权限/参数），直接换下一级
+          // 短暂退避，且不越过总预算
+          await new Promise((r) =>
+            setTimeout(r, Math.min(6000, Math.max(0, callDeadline - Date.now() - 10_000))),
+          );
+        }
       }
-      try {
-        return await attempt();
-      } catch (e) {
-        lastErr = e as Error;
-        const retryable = (e as Error & { retryable?: boolean }).retryable !== false;
-        if (!retryable || i === delays.length) break;
-        // 退避等待不能越过总预算
-        await new Promise((r) =>
-          setTimeout(r, Math.min(delays[i], Math.max(0, callDeadline - Date.now() - 10_000))),
-        );
-      }
+    }
+    // Kimi 链整体失败：配置了 DeepSeek 密钥则自动兜底，保证用户一定能拿到结果
+    if (process.env.DEEPSEEK_API_KEY) {
+      return deepseekCall();
     }
     throw new TRPCError({
       code: "INTERNAL_SERVER_ERROR",
@@ -284,42 +345,8 @@ export async function chatCompletion(
     });
   }
 
-  // 默认 DeepSeek
-  const key = process.env.DEEPSEEK_API_KEY;
-  if (!key) {
-    throw new TRPCError({
-      code: "PRECONDITION_FAILED",
-      message: "服务端未配置 DEEPSEEK_API_KEY",
-    });
-  }
-  const res = await fetchWithRetry(
-    "https://api.deepseek.com/chat/completions",
-    {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${key}`,
-      },
-      body: JSON.stringify({
-        model: process.env.DEEPSEEK_MODEL || "deepseek-chat",
-        messages,
-        stream: false,
-        max_tokens: maxTokens,
-      }),
-    },
-    "DeepSeek",
-  );
-  if (!res.ok) {
-    const text = await res.text().catch(() => "");
-    throw new TRPCError({
-      code: "INTERNAL_SERVER_ERROR",
-      message: `DeepSeek 调用失败：${res.status} ${text.slice(0, 200)}`,
-    });
-  }
-  const data = (await res.json()) as {
-    choices?: { message?: { content?: string } }[];
-  };
-  return data.choices?.[0]?.message?.content ?? "";
+  // 默认 DeepSeek（AI_PROVIDER 非 kimi/ollama）
+  return deepseekCall();
 }
 
 /* ================= 解析 ================= */
@@ -370,6 +397,8 @@ export type GenOutput = {
   bom: string;
   raw: string;
   codeCheck: CodeCheckReport;
+  /** 实际完成本次生成的引擎（k3 / kimi-for-coding-highspeed / deepseek / ollama） */
+  providerUsed: string;
 };
 
 /* ================= 生成管线 ================= */
@@ -428,6 +457,7 @@ export async function runGeneration(input: GenInput): Promise<GenOutput> {
       message: "AI 未返回内容，请重试",
     });
   }
+  const providerUsed = getLastProviderUsed() || "unknown";
 
   let code = extractCode(md);
 
@@ -535,5 +565,6 @@ export async function runGeneration(input: GenInput): Promise<GenOutput> {
       finalErrors: check.errorSummary,
       finalWarnings,
     },
+    providerUsed,
   };
 }
