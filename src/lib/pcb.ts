@@ -1,5 +1,6 @@
 // 恒矽 AI 编程助手 —— PCB 布局引擎 + Gerber 工程文件生成器
 // 布局引擎同时驱动页面 SVG 版图预览与 Gerber 导出，保证所见即所得。
+import JSZip from "jszip";
 
 export type PinInfo = { pin: string; func: string; note: string };
 
@@ -332,7 +333,6 @@ export async function downloadGerberZip(opts: {
   pins: PinInfo[];
   bom: string;
 }) {
-  const { default: JSZip } = await import("jszip");
   const zip = new JSZip();
   const files = buildGerberFiles(opts.layout);
   for (const [name, content] of Object.entries(files)) zip.file(name, content);
